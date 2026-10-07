@@ -93,13 +93,11 @@ const Home = () => {
           
           <div style={{ marginLeft: '16px', borderLeft: '1px solid var(--border-color)', paddingLeft: '24px', display: 'flex', alignItems: 'center', gap: '15px' }}>
             <NotificationBell />
-            {!user && (
-              <>
-                <button className="btn-outline" style={{ display: 'flex', alignItems: 'center', height: '38px', padding: '0 16px', borderRadius: '6px', fontWeight: 600 }} onClick={() => navigate('/login')}>Login</button>
-                <button className="btn-accent" style={{ display: 'flex', alignItems: 'center', height: '38px', padding: '0 16px', borderRadius: '6px', fontWeight: 600 }} onClick={() => navigate('/register')}>Register</button>
-              </>
+            {!user ? (
+              <button className="btn-outline" style={{ display: 'flex', alignItems: 'center', height: '38px', padding: '0 16px', borderRadius: '6px', fontWeight: 600 }} onClick={() => navigate('/login')}>Login</button>
+            ) : (
+              <button className="btn-outline" style={{ display: 'flex', alignItems: 'center', height: '38px', padding: '0 16px', borderRadius: '6px', fontWeight: 600 }} onClick={() => navigate(user.role === 'admin' ? '/admin' : '/profile')}>Dashboard</button>
             )}
-            <button className="btn-outline" style={{ display: 'flex', alignItems: 'center', height: '38px', padding: '0 16px', borderRadius: '6px', fontWeight: 600 }} onClick={() => navigate(user && user.role === 'admin' ? '/admin' : '/profile')}>Dashboard</button>
           </div>
         </div>
       </nav>
