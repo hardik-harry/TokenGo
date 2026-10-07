@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Government Services - QueueLess Admin</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <!-- White Navbar -->
+  <nav class="navbar">
+
+    <button class="hamburger-btn" onclick="toggleMobileMenu()">☰</button>
+
+    <div class="nav-left">
+      <a href="{{ url_for('index') }}" class="brand">
+        <div class="brand-icon">🏛️</div>
+        Queue<span>Less</span> <span style="font-size: 0.75rem; background: #8b5cf6; color: white; padding: 0.2rem 0.6rem; border-radius: 4px; margin-left: 0.5rem;">ADMIN</span>
+      </a>
+      <ul class="nav-menu">
+        <li><a href="{{ url_for('admin.dashboard') }}" class="nav-link">Overview</a></li>
+        <li><a href="{{ url_for('admin.users') }}" class="nav-link">Users</a></li>
+        <li><a href="{{ url_for('admin.staff') }}" class="nav-link">Staff & Counters</a></li>
+        <li><a href="{{ url_for('admin.services') }}" class="nav-link active">Services</a></li>
+        <li><a href="{{ url_for('admin.reports') }}" class="nav-link">Reports & Charts</a></li>
+      </ul>
+    </div>
+    <div class="nav-right">
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-outline btn-sm">Logout</a>
+    </div>
+  </nav>
+
+  <div class="main-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div style="margin-bottom: 2rem;">
+      <h2 style="font-weight: 800; color: var(--text-dark);">Manage Government Services</h2>
+      <p style="color: var(--text-muted);">Create new services, update average processing times, and activate/deactivate departments</p>
+    </div>
+
+    <!-- Create Service Form -->
+    <div class="form-card" style="margin-bottom: 2rem;">
+      <h3 style="font-weight: 700; color: var(--text-dark); margin-bottom: 1.25rem;">➕ Add New Department Service</h3>
+      <form action="{{ url_for('admin.services') }}" method="POST">
+        <input type="hidden" name="action" value="create">
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label>Service Name</label>
+            <input type="text" name="service_name" class="form-control" placeholder="e.g. Utility & Electricity Billing" required>
+          </div>
+          <div class="form-group">
+            <label>Avg. Time (Mins)</label>
+            <input type="number" name="average_service_time" class="form-control" value="15" min="1" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Description</label>
+          <input type="text" name="description" class="form-control" placeholder="Brief service summary for citizens">
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="margin-top: 0.5rem;">Save Service</button>
+      </form>
+    </div>
+
+    <!-- Services Table -->
+    <div class="form-card">
+      <h3 style="font-weight: 700; color: var(--text-dark); margin-bottom: 1.25rem;">Active & Inactive Services</h3>
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Service Name</th>
+              <th>Avg Time</th>
+              <th>Active Queue</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in services %}
+              <tr>
+                <td><strong>#{{ s.id }}</strong></td>
+                <td>
+                  <strong style="color: var(--primary-royal);">{{ s.service_name }}</strong>
+                  <div style="font-size: 0.8rem; color: var(--text-muted);">{{ s.description }}</div>
+                </td>
+                <td>{{ s.average_service_time }} mins</td>
+                <td>👥 {{ s.to_dict().active_queue_count }} waiting</td>
+                <td><span class="status-tag {% if s.is_active %}status-serving{% else %}status-skipped{% endif %}">{{ s.status }}</span></td>
+                <td>
+                  <form action="{{ url_for('admin.services') }}" method="POST" style="display:inline;">
+                    <input type="hidden" name="action" value="toggle">
+                    <input type="hidden" name="service_id" value="{{ s.id }}">
+                    <button type="submit" class="btn btn-outline btn-sm">Toggle Status</button>
+                  </form>
+                  <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('edit-form-{{ s.id }}').style.display = document.getElementById('edit-form-{{ s.id }}').style.display === 'none' ? 'block' : 'none';">Edit</button>
+                  <div id="edit-form-{{ s.id }}" style="display:none; margin-top: 10px; background: var(--bg-alt); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);">
+                    <form action="{{ url_for('admin.services') }}" method="POST">
+                      <input type="hidden" name="action" value="edit">
+                      <input type="hidden" name="service_id" value="{{ s.id }}">
+                      <input type="text" name="service_name" class="form-control" value="{{ s.service_name }}" required style="margin-bottom:5px; font-size: 0.8rem; padding: 0.4rem;">
+                      <input type="text" name="description" class="form-control" value="{{ s.description or '' }}" placeholder="Description" style="margin-bottom:5px; font-size: 0.8rem; padding: 0.4rem;">
+                      <input type="number" name="average_service_time" class="form-control" value="{{ s.average_service_time }}" min="1" required style="margin-bottom:5px; font-size: 0.8rem; padding: 0.4rem;">
+                      <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-content">
+      <div class="footer-copyright">QueueLess © 2026. All rights reserved.</div>
+    </div>
+  </footer>
+
+
+  <script>
+    function toggleMobileMenu() {
+      const navMenu = document.querySelector('.nav-menu');
+      const navRight = document.querySelector('.nav-right');
+      if (navMenu) navMenu.classList.toggle('active');
+      if (navRight) navRight.classList.toggle('active');
+    }
+  </script>
+</body>
+
+</html>

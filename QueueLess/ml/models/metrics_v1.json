@@ -1,0 +1,8 @@
+{
+    "ML_MAE": 79.04,
+    "ML_RMSE": 118.21,
+    "ML_R2": 0.915,
+    "BASELINE_MAE": 22640.69,
+    "BASELINE_RMSE": 25228.9,
+    "BASELINE_R2": -3877.945
+}

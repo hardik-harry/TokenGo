@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Staff Counter Control - QueueLess</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body style="background-color: var(--bg-main);">
+
+  <!-- White Navigation Bar -->
+  <nav class="navbar">
+
+    <button class="hamburger-btn" onclick="toggleMobileMenu()">☰</button>
+
+    <div class="nav-left">
+      <a href="{{ url_for('index') }}" class="brand">
+        <div class="brand-icon">🏛️</div>
+        Queue<span>Less</span>
+      </a>
+      <ul class="nav-menu">
+        <li><a href="{{ url_for('staff.dashboard') }}" class="nav-link active">Dashboard</a></li>
+        <li><a href="{{ url_for('staff.queue') }}" class="nav-link">Queue Management</a></li>
+      </ul>
+    </div>
+    <div class="nav-right">
+      <div class="user-badge">
+        <span>👤 {{ staff_user.name }}</span>
+        <span class="role-tag staff">Staff</span>
+      </div>
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-outline btn-sm">Logout</a>
+    </div>
+  </nav>
+
+  <div class="main-container" id="staffDashboardContainer">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- Staff Header Banner -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <h1 style="font-size: 2.2rem; font-weight: 800; color: var(--text-dark);">Staff Console</h1>
+        <p style="color: var(--text-muted); font-size: 1rem;">
+          Staff: <strong>{{ staff_user.name }}</strong> | 
+          Counter: <strong>{{ counter.counter_name if counter else 'Unassigned' }}</strong>
+        </p>
+      </div>
+
+      <!-- Counter Assignment Selector -->
+      <form action="{{ url_for('staff.assign_counter') }}" method="POST" style="display: flex; gap: 0.5rem; align-items: center;">
+        <select name="counter_id" class="form-control" style="width: auto; font-size: 0.9rem;">
+          <option value="">-- Select Assigned Counter --</option>
+          {% for c in available_counters %}
+            <option value="{{ c.id }}" {% if counter and counter.id == c.id %}selected{% endif %}>
+              {{ c.counter_name }} ({{ c.service.service_name if c.service else 'General' }})
+            </option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-outline btn-sm">Assign</button>
+      </form>
+    </div>
+
+    <!-- Staff Key Performance Stats Grid -->
+    <div class="token-info-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 2rem;">
+      
+      <div class="token-info-item" style="background: white; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem;">
+        <div class="val" id="currentTokenDisplay" style="color: var(--primary-royal); font-size: 2rem;">
+          {{ current_token.token_number if current_token else 'None' }}
+        </div>
+        <div class="lbl">Current Token</div>
+      </div>
+
+      <div class="token-info-item" style="background: white; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem;">
+        <div class="val" id="waitingCountDisplay" style="color: var(--accent-orange); font-size: 2rem;">
+          {{ waiting_tokens | length }}
+        </div>
+        <div class="lbl">Waiting Tokens</div>
+      </div>
+
+      <div class="token-info-item" style="background: white; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem;">
+        <div class="val" id="completedCountDisplay" style="color: var(--status-completed); font-size: 2rem;">
+          {{ completed_today_count }}
+        </div>
+        <div class="lbl">Completed Today</div>
+      </div>
+
+      <div class="token-info-item" style="background: white; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem;">
+        <div class="val" style="color: var(--text-dark); font-size: 2rem;">
+          {{ avg_service_time }} min
+        </div>
+        <div class="lbl">Avg Service Time</div>
+      </div>
+
+    </div>
+
+    <!-- Main Counter Control Panel Card -->
+    <div class="form-card" style="margin-bottom: 2.5rem; padding: 2rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h3 style="font-weight: 800; color: var(--text-dark); margin: 0;">Counter Action Control</h3>
+        
+        <form action="{{ url_for('staff.call_next') }}" method="POST" style="margin: 0;">
+          <button type="submit" class="btn btn-primary" style="font-size: 1.05rem; padding: 0.75rem 2rem; font-weight: 700;">
+            📢 Call Next Token
+          </button>
+        </form>
+      </div>
+
+      {% if current_token %}
+        <div style="background: var(--bg-alt); padding: 1.5rem; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-color);">
+          <div>
+            <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">CURRENTLY SERVING</span>
+            <div style="font-size: 2.5rem; font-weight: 900; color: var(--primary-royal);">{{ current_token.token_number }}</div>
+            <div style="font-size: 0.9rem; color: var(--text-muted);">Citizen: <strong>{{ current_token.user.name if current_token.user else 'Citizen' }}</strong></div>
+          </div>
+
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            <form action="{{ url_for('staff.call_next') }}" method="POST">
+              <button type="submit" class="btn btn-accent btn-sm">🔁 Recall</button>
+            </form>
+            <form action="{{ url_for('staff.complete_token', token_id=current_token.id) }}" method="POST">
+              <button type="submit" class="btn btn-primary btn-sm" style="background-color: var(--status-completed); border-color: var(--status-completed);">✓ Complete</button>
+            </form>
+            <form action="{{ url_for('staff.skip_token', token_id=current_token.id) }}" method="POST">
+              <button type="submit" class="btn btn-outline btn-sm">⏭️ Skip</button>
+            </form>
+          </div>
+        </div>
+      {% else %}
+        <div style="text-align: center; padding: 1.5rem; color: var(--text-muted); background: var(--bg-alt); border-radius: 8px;">
+          No active token currently being served at this counter. Click <strong>"Call Next Token"</strong> to serve the next citizen.
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Active Queue List -->
+    <div class="form-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+        <h3 style="font-weight: 700; color: var(--text-dark); margin: 0;">Live Waiting Queue</h3>
+        <span class="status-tag status-waiting" style="font-size: 0.85rem;">{{ waiting_tokens | length }} Waiting</span>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Token</th>
+              <th>Citizen</th>
+              <th>Service</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="queueTableBody">
+            {% if waiting_tokens %}
+              {% for t in waiting_tokens %}
+                <tr>
+                  <td><strong style="color: var(--primary-royal); font-size: 1.1rem;">{{ t.token_number }}</strong></td>
+                  <td>{{ t.user.name if t.user else 'Citizen' }}</td>
+                  <td>{{ t.service.service_name if t.service else 'General' }}</td>
+                  <td><span class="status-tag status-{{ t.status.lower() }}">{{ t.status.upper() }}</span></td>
+                  <td>
+                    <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+                      <form action="{{ url_for('staff.call_next') }}" method="POST" style="display: inline;">
+                        <button type="submit" class="btn btn-primary btn-sm">Call Next</button>
+                      </form>
+                      <form action="{{ url_for('staff.skip_token', token_id=t.id) }}" method="POST" style="display: inline;">
+                        <button type="submit" class="btn btn-outline btn-sm">Skip</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                  No tokens waiting in queue.
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="{{ url_for('static', filename='js/staff.js') }}"></script>
+
+  <script>
+    function toggleMobileMenu() {
+      const navMenu = document.querySelector('.nav-menu');
+      const navRight = document.querySelector('.nav-right');
+      if (navMenu) navMenu.classList.toggle('active');
+      if (navRight) navRight.classList.toggle('active');
+    }
+  </script>
+</body>
+
+</html>

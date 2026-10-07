@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Account - QueueLess</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body style="background-color: var(--bg-main);">
+
+  <!-- White Navigation Bar -->
+  <nav class="navbar">
+
+    <button class="hamburger-btn" onclick="toggleMobileMenu()">☰</button>
+
+    <div class="nav-left">
+      <a href="{{ url_for('index') }}" class="brand">
+        <div class="brand-icon">🏛️</div>
+        Queue<span>Less</span>
+      </a>
+    </div>
+    <div class="nav-right">
+      <a href="{{ url_for('auth.login') }}" class="btn btn-outline">Already registered? Log in</a>
+    </div>
+  </nav>
+
+  <div class="main-container">
+    <div class="hero-container" style="grid-template-columns: 1fr 1fr; gap: 3rem; align-items: start; padding: 2rem 0;">
+      
+      <!-- Left Side: Branding & Sample Token Card -->
+      <div>
+        <div class="hero-badge">
+          ✨ Smart Government Queue Services
+        </div>
+        <h1 class="hero-title" style="font-size: 2.5rem; margin-bottom: 1rem;">
+          Skip the queue.<br>
+          Save your time.
+        </h1>
+        <p class="hero-subtitle" style="margin-bottom: 2rem;">
+          Register to get digital tokens, track queues live, and arrive right when your turn is called.
+        </p>
+
+        <!-- Sample Token Card -->
+        <div class="sample-token-card">
+          <div class="token-header">
+            <span style="font-weight: 700; color: var(--text-dark);">PASSPORT SERVICES</span>
+            <div class="live-indicator">
+              <div class="pulse-dot"></div> Live Token
+            </div>
+          </div>
+          <div class="sample-token-num">QL-045</div>
+          <div class="token-info-grid">
+            <div class="token-info-item">
+              <div class="val" style="color: var(--accent-orange);">About 40 min</div>
+              <div class="lbl">Estimated Wait</div>
+            </div>
+            <div class="token-info-item">
+              <div class="val">QL-033</div>
+              <div class="lbl">Current Serving</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Side: Account Registration Form -->
+      <div class="form-card" style="padding: 2.5rem;">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">
+                <span>{{ message }}</span>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <div style="margin-bottom: 1.5rem;">
+          <h2 style="font-weight: 800; color: var(--text-dark);">Create your account</h2>
+          <p style="color: var(--text-muted); font-size: 0.9rem;">Join thousands skipping government office wait times</p>
+        </div>
+
+        <form action="{{ url_for('auth.register') }}" method="POST">
+          <div class="form-group">
+            <label for="name">Full Name *</label>
+            <input type="text" id="name" name="name" class="form-control" placeholder="e.g. Aarav Mehta" required>
+          </div>
+
+          <div class="form-group">
+            <label for="mobile">Mobile Number *</label>
+            <input type="tel" id="mobile" name="mobile" class="form-control" placeholder="e.g. 9898012345" required pattern="[0-9]{10}">
+          </div>
+
+          <div class="form-group">
+            <label for="email">Email Address <span style="color: var(--text-muted); font-weight: normal;">(Optional)</span></label>
+            <input type="email" id="email" name="email" class="form-control" placeholder="aarav@example.com">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label for="password">Password *</label>
+              <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" required>
+            </div>
+
+            <div class="form-group">
+              <label for="confirm_password">Confirm Password *</label>
+              <input type="password" id="confirm_password" name="confirm_password" class="form-control" placeholder="••••••••" required>
+            </div>
+          </div>
+
+          <div class="form-group" style="display: flex; align-items: flex-start; gap: 0.5rem; margin-top: 0.5rem;">
+            <input type="checkbox" id="terms" name="terms" required style="margin-top: 0.25rem;">
+            <label for="terms" style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal;">
+              I agree to the Terms of Service & Privacy Policy for government virtual queue access.
+            </label>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.85rem; font-size: 1rem; margin-top: 1rem;">Create Account</button>
+        </form>
+
+        <div style="text-align: center; margin-top: 1.5rem; font-size: 0.88rem; color: var(--text-muted);">
+          Already have an account? <a href="{{ url_for('auth.login') }}" style="font-weight: 700;">Log in</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-content">
+      <div class="footer-copyright">QueueLess © 2026. All rights reserved.</div>
+    </div>
+  </footer>
+
+
+  <script>
+    function toggleMobileMenu() {
+      const navMenu = document.querySelector('.nav-menu');
+      const navRight = document.querySelector('.nav-right');
+      if (navMenu) navMenu.classList.toggle('active');
+      if (navRight) navRight.classList.toggle('active');
+    }
+  </script>
+</body>
+
+</html>

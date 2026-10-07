@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Overview - QueueLess</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body style="background-color: var(--bg-main);">
+
+  <!-- White Navigation Bar -->
+  <nav class="navbar">
+
+    <button class="hamburger-btn" onclick="toggleMobileMenu()">☰</button>
+
+    <div class="nav-left">
+      <a href="{{ url_for('index') }}" class="brand">
+        <div class="brand-icon">🏛️</div>
+        Queue<span>Less</span>
+      </a>
+      <ul class="nav-menu">
+        <li><a href="{{ url_for('admin.dashboard') }}" class="nav-link active">Overview</a></li>
+        <li><a href="{{ url_for('admin.users') }}" class="nav-link">User Roles</a></li>
+        <li><a href="{{ url_for('admin.staff') }}" class="nav-link">Staff & Counters</a></li>
+        <li><a href="{{ url_for('admin.services') }}" class="nav-link">Services</a></li>
+        <li><a href="{{ url_for('admin.reports') }}" class="nav-link">Reports</a></li>
+      </ul>
+    </div>
+    <div class="nav-right">
+      <div class="user-badge">
+        <span>⚙️ Administrator</span>
+        <span class="role-tag admin">Admin</span>
+      </div>
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-outline btn-sm">Logout</a>
+    </div>
+  </nav>
+
+  <div class="main-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div style="margin-bottom: 2rem;">
+      <h1 style="font-size: 2.2rem; font-weight: 800; color: var(--text-dark);">System Control & Operations</h1>
+      <p style="color: var(--text-muted); font-size: 1rem;">Real-time service statistics, user directory, and queue operational analytics</p>
+    </div>
+
+    <!-- Clean Statistics Cards Grid -->
+    <div class="token-info-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 2rem;">
+      
+      <div class="token-info-item" style="background: white; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem;">
+        <div class="val" style="color: var(--primary-royal); font-size: 2.2rem;">{{ total_citizens }}</div>
+        <div class="lbl">Total Citizens</div>
+      </div>
+
+      <div class="token-info-item" style="background: white; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem;">
+        <div class="val" style="color: #6366f1; font-size: 2.2rem;">{{ total_staff }}</div>
+        <div class="lbl">Total Staff</div>
+      </div>
+
+      <div class="token-info-item" style="background: white; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem;">
+        <div class="val" style="color: var(--text-dark); font-size: 2.2rem;">{{ tokens_today }}</div>
+        <div class="lbl">Tokens Today</div>
+      </div>
+
+      <div class="token-info-item" style="background: white; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem;">
+        <div class="val" style="color: var(--status-completed); font-size: 2.2rem;">{{ completed_tokens }}</div>
+        <div class="lbl">Completed Tokens</div>
+      </div>
+
+      <div class="token-info-item" style="background: white; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem;">
+        <div class="val" style="color: var(--accent-orange); font-size: 2.2rem;">{{ waiting_tokens }}</div>
+        <div class="lbl">Waiting Tokens</div>
+      </div>
+
+      <div class="token-info-item" style="background: white; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem;">
+        <div class="val" style="color: var(--status-skipped); font-size: 2.2rem;">{{ cancelled_tokens }}</div>
+        <div class="lbl">Cancelled Tokens</div>
+      </div>
+
+      <div class="token-info-item" style="background: white; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem;">
+        <div class="val" style="color: var(--primary-royal); font-size: 2.2rem;">{{ avg_waiting_time }} min</div>
+        <div class="lbl">Avg Waiting Time</div>
+      </div>
+
+    </div>
+
+    <!-- Chart.js Analytics Grid (4 Charts) -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem;">
+      
+      <!-- 1. Tokens Generated Per Day -->
+      <div class="form-card" style="padding: 1.5rem;">
+        <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-dark); margin-bottom: 1rem;">📈 Tokens Generated Per Day</h3>
+        <div style="position: relative; height: 260px;">
+          <canvas id="tokensPerDayChart"></canvas>
+        </div>
+      </div>
+
+      <!-- 2. Completed vs Cancelled -->
+      <div class="form-card" style="padding: 1.5rem;">
+        <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-dark); margin-bottom: 1rem;">📊 Token Status (Completed vs Cancelled)</h3>
+        <div style="position: relative; height: 260px;">
+          <canvas id="completedVsCancelledChart"></canvas>
+        </div>
+      </div>
+
+      <!-- 3. Service-wise Queue -->
+      <div class="form-card" style="padding: 1.5rem;">
+        <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-dark); margin-bottom: 1rem;">🏛️ Service-wise Waiting Queue</h3>
+        <div style="position: relative; height: 260px;">
+          <canvas id="serviceWiseQueueChart"></canvas>
+        </div>
+      </div>
+
+      <!-- 4. Average Waiting Time -->
+      <div class="form-card" style="padding: 1.5rem;">
+        <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-dark); margin-bottom: 1rem;">⏱️ Average Waiting Time by Service</h3>
+        <div style="position: relative; height: 260px;">
+          <canvas id="averageWaitTimeChart"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Recent Tokens Table -->
+    <div class="form-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+        <h3 style="font-weight: 700; color: var(--text-dark); margin: 0;">Recent Token Activity</h3>
+        <a href="{{ url_for('admin.reports') }}" style="font-size: 0.88rem; font-weight: 600;">View Full Reports →</a>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Token Number</th>
+              <th>Citizen</th>
+              <th>Service</th>
+              <th>Counter</th>
+              <th>Status</th>
+              <th>Created At</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if recent_tokens %}
+              {% for t in recent_tokens %}
+                <tr>
+                  <td><strong style="color: var(--primary-royal); font-size: 1.05rem;">{{ t.token_number }}</strong></td>
+                  <td>{{ t.user.name if t.user else 'Guest' }}</td>
+                  <td>{{ t.service.service_name if t.service else '-' }}</td>
+                  <td>{{ t.counter.counter_name if t.counter else 'Unassigned' }}</td>
+                  <td><span class="status-tag status-{{ t.status.lower() }}">{{ t.status.upper() }}</span></td>
+                  <td>{{ t.created_at.strftime('%Y-%m-%d %H:%M') if t.created_at }}</td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No recent token activity logged.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+
+  <footer>
+    <div class="footer-content">
+      <div class="footer-copyright">QueueLess © 2026. All rights reserved.</div>
+    </div>
+  </footer>
+
+
+  <script>
+    function toggleMobileMenu() {
+      const navMenu = document.querySelector('.nav-menu');
+      const navRight = document.querySelector('.nav-right');
+      if (navMenu) navMenu.classList.toggle('active');
+      if (navRight) navRight.classList.toggle('active');
+    }
+  </script>
+</body>
+
+</html>

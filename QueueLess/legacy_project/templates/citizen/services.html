@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Government Services - QueueLess</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <!-- White Navigation Bar -->
+  <nav class="navbar">
+
+    <button class="hamburger-btn" onclick="toggleMobileMenu()">☰</button>
+
+    <div class="nav-left">
+      <a href="{{ url_for('index') }}" class="brand">
+        <div class="brand-icon">🏛️</div>
+        Queue<span>Less</span>
+      </a>
+      <ul class="nav-menu">
+        <li><a href="{{ url_for('citizen.dashboard') }}" class="nav-link">Dashboard</a></li>
+        <li><a href="{{ url_for('citizen.services') }}" class="nav-link active">View Services</a></li>
+        <li><a href="{{ url_for('citizen.history') }}" class="nav-link">Token History</a></li>
+      </ul>
+    </div>
+    <div class="nav-right">
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-outline btn-sm">Logout</a>
+    </div>
+  </nav>
+
+  <div class="main-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="section-header" style="text-align: left; margin-bottom: 2rem;">
+      <h2 style="font-weight: 800; color: var(--text-dark);">Choose a Government Service</h2>
+      <p style="color: var(--text-muted);">Select a department service below to join the virtual queue and receive a live digital token</p>
+    </div>
+
+    {% if active_token %}
+      <div class="alert alert-warning" style="margin-bottom: 2rem;">
+        <span>⚠️ You currently have an active token <strong>{{ active_token.token_number }}</strong>. <a href="{{ url_for('citizen.view_token', token_id=active_token.id) }}" style="font-weight: 700;">Click here to track live token</a>.</span>
+      </div>
+    {% endif %}
+
+    <div class="services-grid">
+      {% for service in services %}
+        <div class="service-card">
+          <div>
+            <div class="service-card-top">
+              <div class="service-icon-box">🏛️</div>
+              <span class="wait-badge {% if service.average_service_time <= 10 %}wait-short{% elif service.average_service_time <= 15 %}wait-moderate{% else %}wait-long{% endif %}">
+                Avg ~{{ service.average_service_time }} min
+              </span>
+            </div>
+            <h3 class="service-name">{{ service.service_name }}</h3>
+            <p class="service-desc">{{ service.description }}</p>
+
+            <div style="background: var(--bg-alt); padding: 0.75rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem; font-size: 0.85rem;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                <span style="color: var(--text-muted);">People waiting:</span>
+                <strong style="color: var(--text-dark);">👥 {{ service.active_queue_count }} citizens</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-muted);">Estimated Wait:</span>
+                <strong style="color: var(--accent-orange);">~{{ service.active_queue_count * service.average_service_time }} mins</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="service-meta" style="padding-top: 0; border: none;">
+            <form action="{{ url_for('token.generate') }}" method="POST" style="width: 100%;">
+              <input type="hidden" name="service_id" value="{{ service.id }}">
+              <button type="submit" class="btn btn-primary" style="width: 100%;">Get Token</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-content">
+      <div class="footer-copyright">QueueLess © 2026. All rights reserved.</div>
+    </div>
+  </footer>
+
+
+  <script>
+    function toggleMobileMenu() {
+      const navMenu = document.querySelector('.nav-menu');
+      const navRight = document.querySelector('.nav-right');
+      if (navMenu) navMenu.classList.toggle('active');
+      if (navRight) navRight.classList.toggle('active');
+    }
+  </script>
+</body>
+
+</html>

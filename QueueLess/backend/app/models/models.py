@@ -1,0 +1,155 @@
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, JSON
+from sqlalchemy.orm import relationship
+from datetime import datetime
+from app.db.session import Base
+from passlib.context import CryptContext
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    mobile_number = Column(String, nullable=True)
+    password_hash = Column(String, nullable=False)
+    role = Column(String, default="citizen") # citizen, staff, admin
+    status = Column(String, default="active")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def verify_password(self, plain_password):
+        return pwd_context.verify(plain_password, self.password_hash)
+
+class Office(Base):
+    __tablename__ = "offices"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    city = Column(String, nullable=False)
+    address = Column(Text, nullable=True)
+    timezone = Column(String, default="Asia/Kolkata")
+    opening_time = Column(String, default="10:00")
+    closing_time = Column(String, default="18:00")
+    status = Column(String, default="active")
+
+    services = relationship("OfficeService", back_populates="office")
+    counters = relationship("Counter", back_populates="office")
+    tokens = relationship("Token", back_populates="office")
+
+class Service(Base):
+    __tablename__ = "services"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    code = Column(String, unique=True, index=True, nullable=False)
+    description = Column(Text, nullable=True)
+    baseline_service_minutes = Column(Integer, default=15)
+    status = Column(String, default="active")
+
+    offices = relationship("OfficeService", back_populates="service")
+    tokens = relationship("Token", back_populates="service")
+
+class OfficeService(Base):
+    __tablename__ = "office_services"
+    id = Column(Integer, primary_key=True, index=True)
+    office_id = Column(Integer, ForeignKey("offices.id"), nullable=False)
+    service_id = Column(Integer, ForeignKey("services.id"), nullable=False)
+    status = Column(String, default="active")
+    
+    office = relationship("Office", back_populates="services")
+    service = relationship("Service", back_populates="offices")
+
+class Counter(Base):
+    __tablename__ = "counters"
+    id = Column(Integer, primary_key=True, index=True)
+    office_id = Column(Integer, ForeignKey("offices.id"), nullable=False)
+    counter_name = Column(String, nullable=False)
+    status = Column(String, default="active")
+    
+    office = relationship("Office", back_populates="counters")
+    services = relationship("CounterService", back_populates="counter")
+    sessions = relationship("ServiceSession", back_populates="counter")
+
+class CounterService(Base):
+    __tablename__ = "counter_services"
+    id = Column(Integer, primary_key=True, index=True)
+    counter_id = Column(Integer, ForeignKey("counters.id"), nullable=False)
+    service_id = Column(Integer, ForeignKey("services.id"), nullable=False)
+    
+    counter = relationship("Counter", back_populates="services")
+
+class Token(Base):
+    __tablename__ = "tokens"
+    id = Column(Integer, primary_key=True, index=True)
+    token_number = Column(String, unique=True, index=True, nullable=False)
+    office_id = Column(Integer, ForeignKey("offices.id"), nullable=False)
+    service_id = Column(Integer, ForeignKey("services.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    status = Column(String, default="pending") # pending, serving, completed, abandoned
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    office = relationship("Office", back_populates="tokens")
+    service = relationship("Service", back_populates="tokens")
+    user = relationship("User")
+    events = relationship("QueueEvent", back_populates="token")
+    sessions = relationship("ServiceSession", back_populates="token")
+    predictions = relationship("Prediction", back_populates="token")
+
+class QueueEvent(Base):
+    __tablename__ = "queue_events"
+    id = Column(Integer, primary_key=True, index=True)
+    token_id = Column(Integer, ForeignKey("tokens.id"), nullable=False)
+    event_type = Column(String, nullable=False) # issued, called, completed, cancelled
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    employee_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    metadata_ = Column(JSON, nullable=True)
+    
+    token = relationship("Token", back_populates="events")
+
+class ServiceSession(Base):
+    __tablename__ = "service_sessions"
+    id = Column(Integer, primary_key=True, index=True)
+    token_id = Column(Integer, ForeignKey("tokens.id"), nullable=False)
+    counter_id = Column(Integer, ForeignKey("counters.id"), nullable=False)
+    started_at = Column(DateTime, default=datetime.utcnow)
+    ended_at = Column(DateTime, nullable=True)
+    duration = Column(Integer, nullable=True) # in seconds
+    
+    token = relationship("Token", back_populates="sessions")
+    counter = relationship("Counter", back_populates="sessions")
+
+class ModelVersion(Base):
+    __tablename__ = "model_versions"
+    id = Column(Integer, primary_key=True, index=True)
+    version_name = Column(String, unique=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    is_active = Column(Boolean, default=False)
+    metrics_json = Column(JSON, nullable=True)
+
+class Prediction(Base):
+    __tablename__ = "predictions"
+    id = Column(Integer, primary_key=True, index=True)
+    token_id = Column(Integer, ForeignKey("tokens.id"), nullable=False)
+    predicted_wait = Column(Integer, nullable=False)
+    lower_bound = Column(Integer, nullable=True)
+    upper_bound = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    model_version = Column(String, ForeignKey("model_versions.version_name"), nullable=True)
+    
+    token = relationship("Token", back_populates="predictions")
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    message = Column(Text, nullable=False)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    action = Column(String, nullable=False)
+    entity_type = Column(String, nullable=False)
+    entity_id = Column(Integer, nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    changes = Column(JSON, nullable=True)

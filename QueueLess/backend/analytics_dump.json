@@ -1,0 +1,49 @@
+{
+  "kpis": {
+    "total_tokens": 5,
+    "waiting_tokens": 3,
+    "completed_tokens": 0,
+    "avg_wait_minutes": 0,
+    "median_wait_minutes": 0,
+    "p95_wait_minutes": 0,
+    "avg_service_minutes": 0,
+    "no_show_rate": 0.0,
+    "throughput_per_hour": 0.0,
+    "peak_hour": "12:00",
+    "counter_utilization": 100.0
+  },
+  "charts": {
+    "office_volume": [
+      {
+        "name": "Ahmedabad RTO",
+        "value": 3
+      },
+      {
+        "name": "Rajkot RTO",
+        "value": 2
+      }
+    ],
+    "service_volume": [
+      {
+        "name": "Driving Licence Renewal",
+        "value": 2
+      },
+      {
+        "name": "Learner's Licence",
+        "value": 3
+      }
+    ],
+    "daily_trends": [
+      {
+        "day": "Mon",
+        "tokens": 1,
+        "avg_wait": 0
+      },
+      {
+        "day": "Tue",
+        "tokens": 4,
+        "avg_wait": 0
+      }
+    ]
+  }
+}

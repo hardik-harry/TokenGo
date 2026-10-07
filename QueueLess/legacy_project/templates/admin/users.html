@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manage Users - QueueLess Admin</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <!-- White Navbar -->
+  <nav class="navbar">
+
+    <button class="hamburger-btn" onclick="toggleMobileMenu()">☰</button>
+
+    <div class="nav-left">
+      <a href="{{ url_for('index') }}" class="brand">
+        <div class="brand-icon">🏛️</div>
+        Queue<span>Less</span> <span style="font-size: 0.75rem; background: #8b5cf6; color: white; padding: 0.2rem 0.6rem; border-radius: 4px; margin-left: 0.5rem;">ADMIN</span>
+      </a>
+      <ul class="nav-menu">
+        <li><a href="{{ url_for('admin.dashboard') }}" class="nav-link">Overview</a></li>
+        <li><a href="{{ url_for('admin.users') }}" class="nav-link active">Users</a></li>
+        <li><a href="{{ url_for('admin.staff') }}" class="nav-link">Staff & Counters</a></li>
+        <li><a href="{{ url_for('admin.services') }}" class="nav-link">Services</a></li>
+        <li><a href="{{ url_for('admin.reports') }}" class="nav-link">Reports & Charts</a></li>
+      </ul>
+    </div>
+    <div class="nav-right">
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-outline btn-sm">Logout</a>
+    </div>
+  </nav>
+
+  <div class="main-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div style="margin-bottom: 2rem;">
+      <h2 style="font-weight: 800; color: var(--text-dark);">User Management</h2>
+      <p style="color: var(--text-muted);">Manage registered citizens, assign staff privileges, and system roles</p>
+    </div>
+
+    <div class="form-card">
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Mobile</th>
+              <th>Role</th>
+              <th>Created Date</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in users %}
+              <tr>
+                <td><strong>#{{ u.id }}</strong></td>
+                <td><strong>{{ u.name }}</strong></td>
+                <td>{{ u.email }}</td>
+                <td>{{ u.mobile or '-' }}</td>
+                <td><span class="role-tag {{ u.role }}">{{ u.role }}</span></td>
+                <td>{{ u.created_at.strftime('%Y-%m-%d') if u.created_at }}</td>
+                <td><span class="status-tag status-serving">Active</span></td>
+                <td>
+                  <form action="{{ url_for('admin.users') }}" method="POST" style="display: inline-flex; gap: 0.4rem;">
+                    <input type="hidden" name="user_id" value="{{ u.id }}">
+                    <input type="hidden" name="action" value="update_role">
+                    <select name="role" class="form-control" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; width: auto;" onchange="this.form.submit();">
+                      <option value="citizen" {% if u.role == 'citizen' %}selected{% endif %}>Citizen</option>
+                      <option value="staff" {% if u.role == 'staff' %}selected{% endif %}>Staff</option>
+                      <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>Admin</option>
+                    </select>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-content">
+      <div class="footer-copyright">QueueLess © 2026. All rights reserved.</div>
+    </div>
+  </footer>
+
+
+  <script>
+    function toggleMobileMenu() {
+      const navMenu = document.querySelector('.nav-menu');
+      const navRight = document.querySelector('.nav-right');
+      if (navMenu) navMenu.classList.toggle('active');
+      if (navRight) navRight.classList.toggle('active');
+    }
+  </script>
+</body>
+
+</html>

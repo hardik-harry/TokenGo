@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Track Token - QueueLess</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body style="background-color: var(--bg-main);">
+
+  <!-- White Navigation Bar -->
+  <nav class="navbar">
+
+    <button class="hamburger-btn" onclick="toggleMobileMenu()">☰</button>
+
+    <div class="nav-left">
+      <a href="{{ url_for('index') }}" class="brand">
+        <div class="brand-icon">🏛️</div>
+        Queue<span>Less</span>
+      </a>
+      <ul class="nav-menu">
+        <li><a href="{{ url_for('index') }}" class="nav-link">Home</a></li>
+        <li><a href="{{ url_for('token.track') }}" class="nav-link active">Track Token</a></li>
+      </ul>
+    </div>
+    <div class="nav-right">
+      {% if current_user %}
+        <a href="{{ url_for('citizen.dashboard') }}" class="btn btn-primary btn-sm">Dashboard</a>
+      {% else %}
+        <a href="{{ url_for('auth.login') }}" class="btn btn-outline">Log in</a>
+        <a href="{{ url_for('auth.register') }}" class="btn btn-primary">Sign up</a>
+      {% endif %}
+    </div>
+  </nav>
+
+  <div class="main-container">
+    <div style="max-width: 650px; margin: 2rem auto;">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">
+              <span>{{ message }}</span>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <!-- Token Search Input Card -->
+      <div class="form-card" style="margin-bottom: 2rem; padding: 2rem;">
+        <h2 style="font-weight: 800; color: var(--text-dark); margin-bottom: 0.5rem; text-align: center;">Live Token Tracker</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; margin-bottom: 1.5rem;">
+          Enter your virtual token number (e.g. <strong>QL-045</strong> or <strong>PAS-101</strong>) to view live queue position
+        </p>
+
+        <form action="{{ url_for('token.track') }}" method="GET" style="display: flex; gap: 0.75rem;">
+          <input type="text" name="token_number" value="{{ searched_token }}" class="form-control" placeholder="Enter Token Number (e.g. QL-045)" style="font-size: 1.1rem; padding: 0.8rem; text-transform: uppercase;" required>
+          <button type="submit" class="btn btn-primary" style="padding: 0.8rem 1.5rem; font-weight: 700;">Track Now</button>
+        </form>
+      </div>
+
+      <!-- Live Token Display Card -->
+      {% if token_data %}
+        <div class="sample-token-card" style="padding: 2.5rem;" id="trackTokenCard" data-token-number="{{ token_data.token }}">
+          
+          <div id="dynamicAlertBox" class="alert alert-warning" style="display: none; font-size: 1rem; text-align: center; margin-bottom: 1.5rem;"></div>
+
+          <div class="token-header">
+            <div>
+              <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">GOVERNMENT SERVICE</span>
+              <h3 style="font-size: 1.3rem; color: var(--text-dark); font-weight: 800;" id="trackServiceName">{{ token_data.service_name }}</h3>
+            </div>
+            <span id="trackStatusBadge" class="status-tag status-{{ token_data.status.lower() }}" style="font-size: 0.85rem; padding: 0.4rem 1rem;">
+              {{ token_data.status }}
+            </span>
+          </div>
+
+          <div style="text-align: center; margin: 1.5rem 0;">
+            <div style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">TOKEN NUMBER</div>
+            <div class="sample-token-num" style="font-size: 4.5rem; margin: 0.2rem 0;" id="trackTokenNum">{{ token_data.token }}</div>
+          </div>
+
+          <!-- Token Specs Grid -->
+          <div class="token-info-grid">
+            <div class="token-info-item">
+              <div class="val" id="trackCurrentServing">{{ token_data.current_token }}</div>
+              <div class="lbl">Current Serving</div>
+            </div>
+            <div class="token-info-item">
+              <div class="val" id="trackPeopleAhead">{{ token_data.people_ahead }}</div>
+              <div class="lbl">People Ahead</div>
+            </div>
+            <div class="token-info-item">
+              <div class="val" id="trackQueuePosition">{{ token_data.queue_position }}</div>
+              <div class="lbl">Queue Position</div>
+            </div>
+            <div class="token-info-item">
+              <div class="val" id="trackEstWait" style="color: var(--accent-orange);">{{ token_data.estimated_wait }} min</div>
+              <div class="lbl">Estimated Waiting</div>
+            </div>
+          </div>
+
+          <div style="margin-top: 1.25rem; text-align: center; background: var(--bg-alt); padding: 0.75rem; border-radius: 8px;">
+            <span style="font-size: 0.88rem; color: var(--text-muted);">Assigned Counter: </span>
+            <strong style="color: var(--primary-royal); font-size: 1rem;" id="trackCounter">{{ token_data.counter }}</strong>
+          </div>
+
+        </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const card = document.getElementById('trackTokenCard');
+      if (!card) return;
+
+      const tokenNum = card.dataset.tokenNumber;
+      if (!tokenNum) return;
+
+      // Auto Polling every 5 seconds
+      setInterval(() => {
+        fetch('/api/token/' + encodeURIComponent(tokenNum))
+          .then(res => res.json())
+          .then(data => {
+            if (data.error) return;
+
+            document.getElementById('trackStatusBadge').textContent = data.status;
+            document.getElementById('trackStatusBadge').className = 'status-tag status-' + data.status.toLowerCase();
+            document.getElementById('trackCurrentServing').textContent = data.current_token;
+            document.getElementById('trackPeopleAhead').textContent = data.people_ahead;
+            document.getElementById('trackQueuePosition').textContent = data.queue_position;
+            document.getElementById('trackEstWait').textContent = data.estimated_wait + ' min';
+            document.getElementById('trackCounter').textContent = data.counter;
+
+            const alertBox = document.getElementById('dynamicAlertBox');
+            if (data.status === 'SERVING') {
+              alertBox.style.display = 'block';
+              alertBox.className = 'alert alert-success';
+              alertBox.innerHTML = '🔔 <strong>Please go to ' + data.counter + '</strong>';
+            } else if (data.people_ahead <= 2 && data.status === 'WAITING') {
+              alertBox.style.display = 'block';
+              alertBox.className = 'alert alert-warning';
+              alertBox.innerHTML = '⏳ <strong>Your turn is approaching</strong> (' + data.people_ahead + ' people ahead)';
+            } else {
+              alertBox.style.display = 'none';
+            }
+          })
+          .catch(err => console.error("Poll Error:", err));
+      }, 5000);
+    });
+  </script>
+
+  <footer>
+    <div class="footer-content">
+      <div class="footer-copyright">QueueLess © 2026. All rights reserved.</div>
+    </div>
+  </footer>
+
+
+  <script>
+    function toggleMobileMenu() {
+      const navMenu = document.querySelector('.nav-menu');
+      const navRight = document.querySelector('.nav-right');
+      if (navMenu) navMenu.classList.toggle('active');
+      if (navRight) navRight.classList.toggle('active');
+    }
+  </script>
+</body>
+
+</html>

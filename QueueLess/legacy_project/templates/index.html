@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QueueLess - Smart Government Office Virtual Queue Management</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <!-- White Navigation Bar -->
+  <nav class="navbar">
+
+    <button class="hamburger-btn" onclick="toggleMobileMenu()">☰</button>
+
+    <div class="nav-left">
+      <a href="{{ url_for('index') }}" class="brand">
+        <div class="brand-icon">🏛️</div>
+        Queue<span>Less</span>
+      </a>
+      <ul class="nav-menu">
+        <li><a href="{{ url_for('index') }}" class="nav-link active">Home</a></li>
+        <li><a href="#services-section" class="nav-link">Services</a></li>
+        {% if current_user %}
+          <li><a href="{{ url_for('citizen.dashboard') }}" class="nav-link">Track Token</a></li>
+        {% else %}
+          <li><a href="{{ url_for('auth.login') }}" class="nav-link">Track Token</a></li>
+        {% endif %}
+        <li><a href="#how-it-works" class="nav-link">Help</a></li>
+      </ul>
+    </div>
+    <div class="nav-right">
+      <select class="lang-selector">
+        <option>English ▾</option>
+        <option>हिन्दी (Hindi)</option>
+        <option>ગુજરાતી (Gujarati)</option>
+      </select>
+      {% if current_user %}
+        <div class="user-badge">
+          <span>{{ current_user.name }}</span>
+          <span class="role-tag {{ current_user.role }}">{{ current_user.role }}</span>
+        </div>
+        <a href="{{ url_for('auth.logout') }}" class="btn btn-outline btn-sm">Log out</a>
+      {% else %}
+        <a href="{{ url_for('auth.login') }}" class="btn btn-outline">Log in</a>
+        <a href="{{ url_for('auth.register') }}" class="btn btn-primary">Sign up</a>
+      {% endif %}
+    </div>
+  </nav>
+
+  <!-- Homepage Hero -->
+  <section class="hero-section">
+    <div class="hero-container">
+      <div class="hero-left">
+        <div class="hero-badge">
+          ✨ Smart Government Queue Services
+        </div>
+        <h1 class="hero-title">
+          Get your token online.<br>
+          Skip the waiting room.
+        </h1>
+        <p class="hero-subtitle">
+          See your waiting time and come only when your turn is near.
+        </p>
+
+        <!-- Service Search Box -->
+        <div class="search-box-wrapper">
+          <input type="text" class="search-input" id="serviceSearchInput" placeholder="Search government services (e.g. Passport, Aadhaar, Licence)...">
+          <a href="{{ url_for('auth.register') }}" class="btn btn-accent">Get Token</a>
+        </div>
+
+        <!-- Popular Services Chips -->
+        <div class="popular-chips">
+          <span>Popular:</span>
+          <a href="#passport" class="chip">Passport Services</a>
+          <a href="#aadhaar" class="chip">Aadhaar Services</a>
+          <a href="#dl" class="chip">Driving Licence</a>
+        </div>
+      </div>
+
+      <!-- Sample Token Card Preview -->
+      <div class="hero-right">
+        <div class="sample-token-card">
+          <div class="token-header">
+            <span style="font-weight: 700; color: var(--text-dark); font-size: 0.9rem;">PASSPORT SERVICE</span>
+            <div class="live-indicator">
+              <div class="pulse-dot"></div> Live Queue
+            </div>
+          </div>
+          <div class="sample-token-num">QL-045</div>
+          
+          <div class="token-info-grid">
+            <div class="token-info-item">
+              <div class="val" style="color: var(--accent-orange);">About 40 min</div>
+              <div class="lbl">Estimated Wait</div>
+            </div>
+            <div class="token-info-item">
+              <div class="val">QL-033</div>
+              <div class="lbl">Current Serving</div>
+            </div>
+          </div>
+
+          <div style="font-size: 0.82rem; color: var(--text-muted); text-align: center; margin-bottom: 0.25rem;">
+            Queue Progress (12 people ahead)
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Choose a Service Section -->
+  <main class="main-container" id="services-section">
+    <div class="section-header">
+      <h2>Choose a Service</h2>
+      <p>Select your required government service to generate a virtual token instantly</p>
+    </div>
+
+    <div class="services-grid">
+      <!-- 1. Passport Services -->
+      <div class="service-card" id="passport">
+        <div>
+          <div class="service-card-top">
+            <div class="service-icon-box">📘</div>
+            <span class="wait-badge wait-moderate">Moderate wait • 40 min</span>
+          </div>
+          <h3 class="service-name">Passport Services</h3>
+          <p class="service-desc">New passport applications, renewals, and booklet modifications.</p>
+        </div>
+        <div class="service-meta">
+          <span>👥 12 waiting</span>
+          <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-sm">Select Service</a>
+        </div>
+      </div>
+
+      <!-- 2. Aadhaar Services -->
+      <div class="service-card" id="aadhaar">
+        <div>
+          <div class="service-card-top">
+            <div class="service-icon-box">🪪</div>
+            <span class="wait-badge wait-short">Short wait • 18 min</span>
+          </div>
+          <h3 class="service-name">Aadhaar Services</h3>
+          <p class="service-desc">Biometric updates, new card requests, and address corrections.</p>
+        </div>
+        <div class="service-meta">
+          <span>👥 8 waiting</span>
+          <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-sm">Select Service</a>
+        </div>
+      </div>
+
+      <!-- 3. Driving Licence -->
+      <div class="service-card" id="dl">
+        <div>
+          <div class="service-card-top">
+            <div class="service-icon-box">🚗</div>
+            <span class="wait-badge wait-long">Long wait • 75 min</span>
+          </div>
+          <h3 class="service-name">Driving Licence</h3>
+          <p class="service-desc">Learners permit, driving license renewal, vehicle registration.</p>
+        </div>
+        <div class="service-meta">
+          <span>👥 19 waiting</span>
+          <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-sm">Select Service</a>
+        </div>
+      </div>
+
+      <!-- 4. Certificates -->
+      <div class="service-card">
+        <div>
+          <div class="service-card-top">
+            <div class="service-icon-box">📜</div>
+            <span class="wait-badge wait-short">Short wait • 22 min</span>
+          </div>
+          <h3 class="service-name">Certificates</h3>
+          <p class="service-desc">Birth certificates, marriage registration, and income/caste certificates.</p>
+        </div>
+        <div class="service-meta">
+          <span>👥 6 waiting</span>
+          <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-sm">Select Service</a>
+        </div>
+      </div>
+
+      <!-- 5. Land Records -->
+      <div class="service-card">
+        <div>
+          <div class="service-card-top">
+            <div class="service-icon-box">🗺️</div>
+            <span class="wait-badge wait-long">Long wait • 55 min</span>
+          </div>
+          <h3 class="service-name">Land Records</h3>
+          <p class="service-desc">Land title verification, mutation records, and property mapping.</p>
+        </div>
+        <div class="service-meta">
+          <span>👥 15 waiting</span>
+          <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-sm">Select Service</a>
+        </div>
+      </div>
+
+      <!-- 6. Tax Payment -->
+      <div class="service-card">
+        <div>
+          <div class="service-card-top">
+            <div class="service-icon-box">💳</div>
+            <span class="wait-badge wait-short">Short wait • 12 min</span>
+          </div>
+          <h3 class="service-name">Tax Payment</h3>
+          <p class="service-desc">Property tax, commercial levies, and municipal tax payment processing.</p>
+        </div>
+        <div class="service-meta">
+          <span>👥 4 waiting</span>
+          <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-sm">Select Service</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- How It Works Section -->
+    <section class="how-it-works" id="how-it-works">
+      <div class="section-header" style="margin-bottom: 1rem;">
+        <h2>How it works</h2>
+        <p>Three simple steps to save your precious time</p>
+      </div>
+
+      <div class="steps-grid">
+        <div class="step-card">
+          <div class="step-num">01</div>
+          <h4 class="step-title">Choose a service</h4>
+          <p class="step-desc">Select the government department service you need from our portal online.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">02</div>
+          <h4 class="step-title">Get your token</h4>
+          <p class="step-desc">Receive a smart virtual queue token with live estimated waiting time updates.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-num">03</div>
+          <h4 class="step-title">Come when it's your turn</h4>
+          <p class="step-desc">Receive turn alerts on your phone and walk directly to your designated counter.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-content">
+      <div class="footer-copyright">
+        <strong>QueueLess</strong> © 2026 Smart Government Office Virtual Queue Management System. All rights reserved.
+      </div>
+      <ul class="footer-links">
+        <li><a href="#">Privacy Policy</a></li>
+        <li><a href="#">Terms of Service</a></li>
+        <li><a href="#">Citizen Portal</a></li>
+        <li><a href="{{ url_for('auth.login') }}">Staff Login</a></li>
+      </ul>
+    </div>
+  </footer>
+
+
+  <script>
+    function toggleMobileMenu() {
+      const navMenu = document.querySelector('.nav-menu');
+      const navRight = document.querySelector('.nav-right');
+      if (navMenu) navMenu.classList.toggle('active');
+      if (navRight) navRight.classList.toggle('active');
+    }
+  </script>
+</body>
+
+</html>

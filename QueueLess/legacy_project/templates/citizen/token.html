@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Virtual Token - QueueLess</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <!-- White Navigation Bar -->
+  <nav class="navbar">
+
+    <button class="hamburger-btn" onclick="toggleMobileMenu()">☰</button>
+
+    <div class="nav-left">
+      <a href="{{ url_for('index') }}" class="brand">
+        <div class="brand-icon">🏛️</div>
+        Queue<span>Less</span>
+      </a>
+      <ul class="nav-menu">
+        <li><a href="{{ url_for('citizen.dashboard') }}" class="nav-link">Dashboard</a></li>
+        <li><a href="{{ url_for('citizen.services') }}" class="nav-link">View Services</a></li>
+      </ul>
+    </div>
+    <div class="nav-right">
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-outline btn-sm">Logout</a>
+    </div>
+  </nav>
+
+  <div class="main-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div id="liveTurnAlert" class="alert alert-success" style="display: none; font-size: 1.1rem; text-align: center;"></div>
+
+    <div style="max-width: 650px; margin: 1.5rem auto;" id="liveTokenContainer" data-token-id="{{ token.id }}">
+      <div class="sample-token-card" style="padding: 2.5rem;">
+        
+        <div class="token-header">
+          <div>
+            <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">GOVERNMENT SERVICE</span>
+            <h3 style="font-size: 1.3rem; color: var(--text-dark); font-weight: 800;">{{ token.service_name }}</h3>
+          </div>
+          <span id="tokenStatusBadge" class="status-tag status-{{ token.status.lower() }}" style="font-size: 0.85rem; padding: 0.4rem 1rem;">
+            {{ token.status.upper() }}
+          </span>
+        </div>
+
+        <div style="text-align: center; margin: 1.5rem 0;">
+          <div style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 1px;">YOUR VIRTUAL TOKEN</div>
+          <div class="sample-token-num" style="font-size: 4.5rem; margin: 0.2rem 0;">{{ token.token_number }}</div>
+        </div>
+
+        <!-- Token Specs Grid -->
+        <div class="token-info-grid">
+          <div class="token-info-item">
+            <div class="val" id="queuePositionVal">{{ token.position if token.position else token.queue_position }}</div>
+            <div class="lbl">Queue Position</div>
+          </div>
+          <div class="token-info-item">
+            <div class="val" id="peopleAheadVal">{{ token.people_ahead }}</div>
+            <div class="lbl">People Ahead</div>
+          </div>
+          <div class="token-info-item">
+            <div class="val" id="currentServingVal" style="color: var(--primary-royal);">{{ token.current_serving_token }}</div>
+            <div class="lbl">Current Serving</div>
+          </div>
+          <div class="token-info-item">
+            <div class="val" id="estWaitVal" style="color: var(--accent-orange);">{{ token.estimated_wait }} minutes</div>
+            <div class="lbl">Estimated Waiting</div>
+          </div>
+        </div>
+
+        <!-- Queue Progress Bar -->
+        <div style="margin: 1.5rem 0;">
+          <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.35rem;">
+            <span>Queue Progress</span>
+            <span>Live Sync</span>
+          </div>
+          <div class="progress-bar-bg" style="height: 12px;">
+            <div class="progress-bar-fill" style="width: 75%;"></div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div style="margin-top: 2rem; display: flex; flex-direction: column; gap: 0.75rem;">
+          <button type="button" class="btn btn-accent" style="width: 100%; font-size: 0.95rem;" onclick="alert('🔔 Turn notifications enabled! You will hear a chime and see an alert when your turn is near.');">
+            🔔 Notify me when my turn is near
+          </button>
+          
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
+            <a href="{{ url_for('citizen.dashboard') }}" class="btn btn-outline">← Back to Dashboard</a>
+            
+            {% if token.status in ['waiting', 'serving'] %}
+              <form action="{{ url_for('token.cancel', token_id=token.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to cancel this token?');">
+                <button type="submit" class="btn btn-outline" style="color: var(--status-skipped);">Cancel Token</button>
+              </form>
+            {% endif %}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/citizen.js') }}"></script>
+
+  <script>
+    function toggleMobileMenu() {
+      const navMenu = document.querySelector('.nav-menu');
+      const navRight = document.querySelector('.nav-right');
+      if (navMenu) navMenu.classList.toggle('active');
+      if (navRight) navRight.classList.toggle('active');
+    }
+  </script>
+</body>
+
+</html>

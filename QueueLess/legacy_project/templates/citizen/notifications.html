@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Notifications - QueueLess</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <!-- White Navigation Bar -->
+  <nav class="navbar">
+
+    <button class="hamburger-btn" onclick="toggleMobileMenu()">☰</button>
+
+    <div class="nav-left">
+      <a href="{{ url_for('index') }}" class="brand">
+        <div class="brand-icon">🏛️</div>
+        Queue<span>Less</span>
+      </a>
+      <ul class="nav-menu">
+        <li><a href="{{ url_for('citizen.dashboard') }}" class="nav-link">Dashboard</a></li>
+        <li><a href="{{ url_for('citizen.services') }}" class="nav-link">View Services</a></li>
+        <li><a href="{{ url_for('citizen.history') }}" class="nav-link">Token History</a></li>
+      </ul>
+    </div>
+    <div class="nav-right" style="display: flex; align-items: center; gap: 1rem;">
+      <a href="{{ url_for('citizen.notifications') }}" class="nav-link active" style="position: relative; text-decoration: none; font-size: 1.3rem;" title="Notifications">
+        🔔
+      </a>
+      <div class="user-badge" style="margin-left: 0.5rem;">
+        <span>👤 {{ current_user.name if current_user else 'Citizen' }}</span>
+        <span class="role-tag citizen">Citizen</span>
+      </div>
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-outline btn-sm">Logout</a>
+    </div>
+  </nav>
+
+  <div class="main-container">
+    <div style="margin-bottom: 2rem;">
+      <h2 style="font-weight: 800; color: var(--text-dark);">Your Notifications</h2>
+      <p style="color: var(--text-muted);">Stay updated on your virtual queue movements and turn alerts</p>
+    </div>
+
+    <div class="form-card">
+      {% if notifications %}
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+          {% for n in notifications %}
+            <div style="padding: 1.5rem; border-radius: 8px; border-left: 4px solid 
+              {% if n.type == 'success' %}var(--status-completed)
+              {% elif n.type == 'warning' %}var(--accent-orange)
+              {% elif n.type == 'info' %}var(--primary-royal)
+              {% else %}var(--border-color){% endif %}; background: {% if not n.is_read %}var(--bg-main){% else %}white{% endif %}; border-top: 1px solid var(--border-color); border-right: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); box-shadow: 0 2px 5px rgba(0,0,0,0.02);">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+                  {% if n.type == 'success' %}System Update
+                  {% elif n.type == 'warning' %}Attention Needed
+                  {% else %}Notification{% endif %}
+                </span>
+                <span style="font-size: 0.85rem; color: var(--text-muted);">{{ n.created_at.strftime('%Y-%m-%d %H:%M') if n.created_at }}</span>
+              </div>
+              <div style="font-size: 1.05rem; color: var(--text-dark); line-height: 1.5;">
+                {{ n.message }}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div style="text-align: center; padding: 3rem;">
+          <div style="font-size: 3rem; margin-bottom: 1rem;">📭</div>
+          <h3 style="color: var(--text-dark); font-weight: 700;">No Notifications Yet</h3>
+          <p style="color: var(--text-muted);">When you generate a token or your turn approaches, alerts will appear here.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-content">
+      <div class="footer-copyright">QueueLess © 2026. All rights reserved.</div>
+    </div>
+  </footer>
+
+
+  <script>
+    function toggleMobileMenu() {
+      const navMenu = document.querySelector('.nav-menu');
+      const navRight = document.querySelector('.nav-right');
+      if (navMenu) navMenu.classList.toggle('active');
+      if (navRight) navRight.classList.toggle('active');
+    }
+  </script>
+</body>
+
+</html>

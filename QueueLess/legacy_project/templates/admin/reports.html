@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reports & Analytics - QueueLess Admin</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <!-- White Navbar -->
+  <nav class="navbar">
+
+    <button class="hamburger-btn" onclick="toggleMobileMenu()">☰</button>
+
+    <div class="nav-left">
+      <a href="{{ url_for('index') }}" class="brand">
+        <div class="brand-icon">🏛️</div>
+        Queue<span>Less</span> <span style="font-size: 0.75rem; background: #8b5cf6; color: white; padding: 0.2rem 0.6rem; border-radius: 4px; margin-left: 0.5rem;">ADMIN</span>
+      </a>
+      <ul class="nav-menu">
+        <li><a href="{{ url_for('admin.dashboard') }}" class="nav-link">Overview</a></li>
+        <li><a href="{{ url_for('admin.users') }}" class="nav-link">Users</a></li>
+        <li><a href="{{ url_for('admin.staff') }}" class="nav-link">Staff & Counters</a></li>
+        <li><a href="{{ url_for('admin.services') }}" class="nav-link">Services</a></li>
+        <li><a href="{{ url_for('admin.reports') }}" class="nav-link active">Reports & Charts</a></li>
+      </ul>
+    </div>
+    <div class="nav-right">
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-outline btn-sm">Logout</a>
+    </div>
+  </nav>
+
+  <div class="main-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <h2 style="font-weight: 800; color: var(--text-dark);">Comprehensive Reports & Analytics</h2>
+        <p style="color: var(--text-muted);">Deep dive into system statistics and charts for data-driven decisions</p>
+      </div>
+      
+      <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <label for="dateFilter" style="font-weight: 600; font-size: 0.9rem; color: var(--text-muted);">Time Range:</label>
+        <select id="dateFilter" class="form-control" onchange="fetchAdminStats()">
+          <option value="today">Today</option>
+          <option value="7days" selected>Last 7 Days</option>
+          <option value="30days">Last 30 Days</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Quick Summary Cards -->
+    <div class="token-info-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 2rem;">
+      <div class="token-info-item" style="background: white; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem;">
+        <div class="val" style="color: var(--primary-royal); font-size: 2rem;">{{ total_citizens }}</div>
+        <div class="lbl">Total Registered Citizens</div>
+      </div>
+      <div class="token-info-item" style="background: white; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem;">
+        <div class="val" style="color: #6366f1; font-size: 2rem;">{{ total_staff }}</div>
+        <div class="lbl">Total Staff Agents</div>
+      </div>
+      <div class="token-info-item" style="background: white; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem;">
+        <div class="val" style="color: var(--status-completed); font-size: 2rem;">{{ completed_tokens }}</div>
+        <div class="lbl">All Time Completed Tokens</div>
+      </div>
+      <div class="token-info-item" style="background: white; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem;">
+        <div class="val" style="color: var(--status-cancelled); font-size: 2rem;">{{ cancelled_tokens }}</div>
+        <div class="lbl">All Time Cancelled Tokens</div>
+      </div>
+    </div>
+
+    <!-- Chart.js Analytics Grid (4 Charts) -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem;">
+      
+      <!-- 1. Tokens Generated Per Day -->
+      <div class="form-card" style="padding: 1.5rem;">
+        <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-dark); margin-bottom: 1rem;">📈 Tokens Generated (Last 7 Days)</h3>
+        <div style="position: relative; height: 300px;">
+          <canvas id="tokensPerDayChart"></canvas>
+        </div>
+      </div>
+
+      <!-- 2. Completed vs Cancelled -->
+      <div class="form-card" style="padding: 1.5rem;">
+        <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-dark); margin-bottom: 1rem;">📊 Operational Efficiency</h3>
+        <div style="position: relative; height: 300px;">
+          <canvas id="completedVsCancelledChart"></canvas>
+        </div>
+      </div>
+
+      <!-- 3. Service-wise Queue -->
+      <div class="form-card" style="padding: 1.5rem;">
+        <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-dark); margin-bottom: 1rem;">🏛️ Current Department Bottlenecks</h3>
+        <div style="position: relative; height: 300px;">
+          <canvas id="serviceWiseQueueChart"></canvas>
+        </div>
+      </div>
+
+      <!-- 4. Average Waiting Time -->
+      <div class="form-card" style="padding: 1.5rem;">
+        <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-dark); margin-bottom: 1rem;">⏱️ Projected Average Wait Times</h3>
+        <div style="position: relative; height: 300px;">
+          <canvas id="averageWaitTimeChart"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Action Buttons -->
+    <div style="text-align: right; margin-bottom: 2rem;">
+        <button class="btn btn-outline" onclick="window.print()">🖨️ Print Report</button>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+
+  <footer>
+    <div class="footer-content">
+      <div class="footer-copyright">QueueLess © 2026. All rights reserved.</div>
+    </div>
+  </footer>
+
+
+  <script>
+    function toggleMobileMenu() {
+      const navMenu = document.querySelector('.nav-menu');
+      const navRight = document.querySelector('.nav-right');
+      if (navMenu) navMenu.classList.toggle('active');
+      if (navRight) navRight.classList.toggle('active');
+    }
+  </script>
+</body>
+
+</html>

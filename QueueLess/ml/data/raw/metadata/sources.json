@@ -1,0 +1,30 @@
+[
+  {
+    "source_name": "Open Government Data (OGD) Platform India - Gujarat Transport Statistics",
+    "source_url": "https://data.gov.in/catalog/transport-statistics-gujarat",
+    "publisher": "Ministry of Road Transport & Highways, Government of India",
+    "access_date": "2026-10-04",
+    "update_date": "2025-11-20",
+    "license_notes": "Government Open Data License (GODL). Free to use, adapt, and share.",
+    "fields_used": [
+      "district_name",
+      "registered_vehicles_count",
+      "growth_rate_percentage"
+    ],
+    "purpose": "Used strictly to calculate baseline queue demand factors (arrival rates) scaling logically with local vehicle density. Does not contain individualized wait histories."
+  },
+  {
+    "source_name": "API Setu - Transport Sandbox Simulator",
+    "source_url": "https://apisetu.gov.in/public/api/morth",
+    "publisher": "National Informatics Centre (NIC)",
+    "access_date": "2026-10-04",
+    "update_date": "2026-09-01",
+    "license_notes": "Authorized Sandbox API Usage. Keys mapped via environment securely.",
+    "fields_used": [
+      "active_rto_codes",
+      "service_categories",
+      "seasonal_congestion_index"
+    ],
+    "purpose": "Retrieving standard macro-congestion modifiers affecting seasonal license renewals."
+  }
+]

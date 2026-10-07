@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Staff & Counters - QueueLess Admin</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <!-- White Navbar -->
+  <nav class="navbar">
+
+    <button class="hamburger-btn" onclick="toggleMobileMenu()">☰</button>
+
+    <div class="nav-left">
+      <a href="{{ url_for('index') }}" class="brand">
+        <div class="brand-icon">🏛️</div>
+        Queue<span>Less</span> <span style="font-size: 0.75rem; background: #8b5cf6; color: white; padding: 0.2rem 0.6rem; border-radius: 4px; margin-left: 0.5rem;">ADMIN</span>
+      </a>
+      <ul class="nav-menu">
+        <li><a href="{{ url_for('admin.dashboard') }}" class="nav-link">Overview</a></li>
+        <li><a href="{{ url_for('admin.users') }}" class="nav-link">Users</a></li>
+        <li><a href="{{ url_for('admin.staff') }}" class="nav-link active">Staff & Counters</a></li>
+        <li><a href="{{ url_for('admin.services') }}" class="nav-link">Services</a></li>
+        <li><a href="{{ url_for('admin.reports') }}" class="nav-link">Reports & Charts</a></li>
+      </ul>
+    </div>
+    <div class="nav-right">
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-outline btn-sm">Logout</a>
+    </div>
+  </nav>
+
+  <div class="main-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div style="margin-bottom: 2rem;">
+      <h2 style="font-weight: 800; color: var(--text-dark);">Staff & Counter Management</h2>
+      <p style="color: var(--text-muted);">Configure counters and assign staff members to services</p>
+    </div>
+
+    <div class="dashboard-grid">
+      <!-- Counters List & Add Counter -->
+      <div class="form-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+          <h3 style="font-weight: 700; color: var(--text-dark);">Counters</h3>
+        </div>
+
+        <form action="{{ url_for('admin.counters') }}" method="POST" style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
+          <input type="hidden" name="action" value="create">
+          <input type="text" name="counter_number" class="form-control" placeholder="e.g. Counter G-701" required style="flex: 1;">
+          <select name="service_id" class="form-control" style="width: auto;">
+            <option value="0">-- Service --</option>
+            {% for s in services %}
+              <option value="{{ s.id }}">{{ s.service_name }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn btn-primary btn-sm">Add Counter</button>
+        </form>
+
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Counter Name</th>
+                <th>Assigned Service</th>
+                <th>Staff</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in counters %}
+                <tr>
+                  <td><strong style="color: var(--primary-royal);">{{ c.counter_name }}</strong></td>
+                  <td>{{ c.service.service_name if c.service else 'Unassigned' }}</td>
+                  <td>{{ c.assigned_staff.name if c.assigned_staff else 'None' }}</td>
+                  <td><span class="status-tag {% if c.status == 'active' %}status-serving{% else %}status-skipped{% endif %}">{{ c.status }}</span></td>
+                  <td>
+                    <form action="{{ url_for('admin.counters') }}" method="POST">
+                      <input type="hidden" name="action" value="toggle_status">
+                      <input type="hidden" name="counter_id" value="{{ c.id }}">
+                      <button type="submit" class="btn btn-outline btn-sm">Toggle</button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Staff Member Assignment -->
+      <div class="form-card">
+        <h3 style="font-weight: 700; color: var(--text-dark); margin-bottom: 1.25rem;">Staff Roster</h3>
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Staff Name</th>
+                <th>Mobile</th>
+                <th>Assigned Service</th>
+                <th>Assigned Counter</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for sm in staff_members %}
+                <tr>
+                  <td>
+                    <strong>{{ sm.name }}</strong>
+                    <div style="font-size: 0.78rem; color: var(--text-muted);">{{ sm.email }}</div>
+                  </td>
+                  <td>{{ sm.mobile or '-' }}</td>
+                  <td>
+                    {% set cur_counter = sm.assigned_counters[0] if sm.assigned_counters else None %}
+                    {{ cur_counter.service.service_name if cur_counter and cur_counter.service else 'None' }}
+                  </td>
+                  <td>
+                    <span style="font-size: 0.85rem; font-weight: 600; color: var(--primary-royal);">
+                      {{ cur_counter.counter_name if cur_counter else 'Unassigned' }}
+                    </span>
+                  </td>
+                  <td><span class="status-tag status-serving">Active</span></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-content">
+      <div class="footer-copyright">QueueLess © 2026. All rights reserved.</div>
+    </div>
+  </footer>
+
+
+  <script>
+    function toggleMobileMenu() {
+      const navMenu = document.querySelector('.nav-menu');
+      const navRight = document.querySelector('.nav-right');
+      if (navMenu) navMenu.classList.toggle('active');
+      if (navRight) navRight.classList.toggle('active');
+    }
+  </script>
+</body>
+
+</html>

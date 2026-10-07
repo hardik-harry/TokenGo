@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Token History - QueueLess</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <!-- White Navigation Bar -->
+  <nav class="navbar">
+
+    <button class="hamburger-btn" onclick="toggleMobileMenu()">☰</button>
+
+    <div class="nav-left">
+      <a href="{{ url_for('index') }}" class="brand">
+        <div class="brand-icon">🏛️</div>
+        Queue<span>Less</span>
+      </a>
+      <ul class="nav-menu">
+        <li><a href="{{ url_for('citizen.dashboard') }}" class="nav-link">Dashboard</a></li>
+        <li><a href="{{ url_for('citizen.services') }}" class="nav-link">View Services</a></li>
+        <li><a href="{{ url_for('citizen.history') }}" class="nav-link active">Token History</a></li>
+      </ul>
+    </div>
+    <div class="nav-right" style="display: flex; align-items: center; gap: 1rem;">
+      <a href="{{ url_for('citizen.notifications') }}" style="position: relative; text-decoration: none; font-size: 1.3rem;" title="Notifications">
+        🔔
+        {% if unread_count > 0 %}
+          <span style="position: absolute; top: -5px; right: -8px; background: red; color: white; border-radius: 50%; font-size: 0.70rem; padding: 2px 6px; font-weight: bold;">{{ unread_count }}</span>
+        {% endif %}
+      </a>
+      <div class="user-badge" style="margin-left: 0.5rem;">
+        <span>👤 {{ current_user.name if current_user else 'Citizen' }}</span>
+        <span class="role-tag citizen">Citizen</span>
+      </div>
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-outline btn-sm">Logout</a>
+    </div>
+  </nav>
+
+  <div class="main-container">
+    <div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <h2 style="font-weight: 800; color: var(--text-dark);">Token History</h2>
+        <p style="color: var(--text-muted);">View all your past and current virtual tokens</p>
+      </div>
+      
+      <!-- Status Filter -->
+      <form action="{{ url_for('citizen.history') }}" method="GET" style="display: flex; gap: 0.5rem;">
+        <select name="status" class="form-control" onchange="this.form.submit();">
+          <option value="all" {% if current_status == 'all' %}selected{% endif %}>All Tokens</option>
+          <option value="completed" {% if current_status == 'completed' %}selected{% endif %}>Completed</option>
+          <option value="cancelled" {% if current_status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+          <option value="skipped" {% if current_status == 'skipped' %}selected{% endif %}>Skipped</option>
+        </select>
+      </form>
+    </div>
+
+    <div class="form-card">
+      {% if tokens %}
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Token Number</th>
+                <th>Service</th>
+                <th>Date Generated</th>
+                <th>Assigned Counter</th>
+                <th>Est. Wait / Wait Time</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for t in tokens %}
+                <tr style="cursor: pointer;" onclick="window.location='{{ url_for('citizen.view_token', token_id=t.id) }}'">
+                  <td><strong style="color: var(--primary-royal); font-size: 1.1rem;">{{ t.token_number }}</strong></td>
+                  <td>{{ t.service.service_name if t.service else 'Service' }}</td>
+                  <td>{{ t.created_at.strftime('%Y-%m-%d %H:%M') if t.created_at }}</td>
+                  <td>{{ t.counter.counter_name if t.counter else 'Pending / Unassigned' }}</td>
+                  <td>
+                    {% if t.status == 'completed' and t.completed_at %}
+                       {{ ((t.completed_at - t.created_at).total_seconds() / 60) | int }} mins actual
+                    {% else %}
+                       {{ t.estimated_wait }} mins est.
+                    {% endif %}
+                  </td>
+                  <td><span class="status-tag status-{{ t.status.lower() }}">{{ t.status.upper() }}</span></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      
+        <!-- Pagination Controls -->
+        {% if pagination.pages > 1 %}
+          <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 2rem;">
+            {% if pagination.has_prev %}
+              <a href="{{ url_for('citizen.history', page=pagination.prev_num, status=current_status) }}" class="btn btn-outline btn-sm">← Previous</a>
+            {% endif %}
+            
+            <div style="display: flex; align-items: center; font-size: 0.9rem; color: var(--text-muted); font-weight: 600;">
+              Page {{ pagination.page }} of {{ pagination.pages }}
+            </div>
+            
+            {% if pagination.has_next %}
+              <a href="{{ url_for('citizen.history', page=pagination.next_num, status=current_status) }}" class="btn btn-outline btn-sm">Next →</a>
+            {% endif %}
+          </div>
+        {% endif %}
+        
+      {% else %}
+        <div style="text-align: center; padding: 3rem;">
+          <div style="font-size: 3rem; margin-bottom: 1rem;">📜</div>
+          <h3 style="color: var(--text-dark); font-weight: 700;">No History Available</h3>
+          <p style="color: var(--text-muted);">{% if current_status != 'all' %}No tokens found for status '{{ current_status }}'.{% else %}You haven't generated any virtual tokens yet.{% endif %}</p>
+        </div>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <footer>
+    <div class="footer-content">
+      <div class="footer-copyright">QueueLess © 2026. All rights reserved.</div>
+    </div>
+  </footer>
+
+
+  <script>
+    function toggleMobileMenu() {
+      const navMenu = document.querySelector('.nav-menu');
+      const navRight = document.querySelector('.nav-right');
+      if (navMenu) navMenu.classList.toggle('active');
+      if (navRight) navRight.classList.toggle('active');
+    }
+  </script>
+</body>
+
+</html>
