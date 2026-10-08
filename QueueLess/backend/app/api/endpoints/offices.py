@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api import deps
-from app.models.models import Office, Service, OfficeService
+from app.models.models import Office, Service, OfficeService, Counter
 from app.schemas.office import OfficeResponse, ServiceResponse, OfficeListResponse
 
 router = APIRouter()
@@ -56,3 +56,16 @@ def get_office_services(
     )
     
     return office_services
+
+@router.get("/{office_id}/counters")
+def get_office_counters(
+    office_id: int,
+    db: Session = Depends(deps.get_db)
+) -> Any:
+    # Verify office exists
+    office = db.query(Office).filter(Office.id == office_id).first()
+    if not office:
+        raise HTTPException(status_code=404, detail="Office not found")
+        
+    counters = db.query(Counter).filter(Counter.office_id == office_id).all()
+    return [{"id": c.id, "counter_name": c.counter_name, "status": c.status} for c in counters]

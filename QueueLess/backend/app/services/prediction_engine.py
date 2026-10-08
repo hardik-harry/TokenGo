@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import math
-from app.models.models import Service, Counter, Token, OfficeService
+from app.models.models import Service, Counter, Token, OfficeService, Office
 from app.services.queue_manager import QueueManager
 from fastapi import HTTPException
 from app.schemas.prediction import WaitTimeRequest
@@ -58,28 +58,23 @@ class PredictionEngine:
         else:
              active_counters = active_counters_count
 
-        avg_time = service.baseline_service_minutes or 15
+        avg_time = service.baseline_service_minutes or 20
 
-        if people_ahead == 0:
-            predicted_wait = 0
-            lower = 0
-            upper = avg_time
-        else:
-            predicted_wait = (people_ahead * avg_time) / active_counters
-            
-            # Very loose bounds for baseline
-            lower = max(0, predicted_wait * 0.75)
-            upper = predicted_wait * 1.30
-            
-            # Extreme case fallback for broken math
-            if not math.isfinite(predicted_wait):
-                predicted_wait = 0
+        # Dynamically scale by actual queue position explicitly
+        multiplier = max(1, people_ahead + 1)
+        predicted_wait = (multiplier * avg_time) / active_counters
 
-        predicted_wait = max(0, int(round(predicted_wait)))
-        lower_bound = max(0, int(math.floor(lower)))
-        upper_bound = max(0, int(math.ceil(upper)))
+        if not math.isfinite(predicted_wait) or predicted_wait < 0:
+            predicted_wait = 15.0
 
-        # Recommended Arrival
+        predicted_wait = int(round(predicted_wait))
+        lower_bound = max(1, int(math.floor(predicted_wait * 0.80)))
+        upper_bound = int(math.ceil(predicted_wait * 1.20))
+        
+        # Align perfectly to average 
+        predicted_wait = int((lower_bound + upper_bound) / 2)
+
+        # Recommended Arrival Time scales off dynamic estimate
         arrival_datetime = datetime.now() + timedelta(minutes=predicted_wait)
         recommended_arrival_time = arrival_datetime.strftime("%H:%M")
 
@@ -146,12 +141,25 @@ class PredictionEngine:
 
                 # Evaluate execution block
                 preprocessed = ml_pipeline['preprocessor'].transform(df) if 'preprocessor' in ml_pipeline else df
-                predicted_time = ml_pipeline['model'].predict(preprocessed)[0]
                 
-                predicted_wait = int(round(predicted_time))
-                # Simple bounds approximation derived from ML variance (example +/- 20%)
-                lower_bound = max(0, int(math.floor(predicted_time * 0.80)))
-                upper_bound = int(math.ceil(predicted_time * 1.20))
+                # Retrieve pure dynamic baseline deterministic target
+                avg_time = historical_avg
+                deterministic_wait = (max(1, people_ahead + 1) * avg_time) / max(1, active_counters_count)
+
+                predicted_time = float(ml_pipeline['model'].predict(preprocessed)[0])
+                if not math.isfinite(predicted_time) or predicted_time < 0 or predicted_time > 300:
+                    predicted_time = deterministic_wait
+                
+                # Blend 25% ML Prediction with 75% Pure Dynamic Formula to guarantee strict queue-state reaction
+                blended_wait = (predicted_time * 0.25) + (deterministic_wait * 0.75)
+                
+                predicted_wait = int(round(blended_wait))
+                # Simple bounds approximation clamped realistically
+                lower_bound = max(1, int(math.floor(predicted_wait * 0.80)))
+                upper_bound = int(math.ceil(predicted_wait * 1.20))
+                
+                # Align prediction perfectly with average of final bounds to satisfy UI logic
+                predicted_wait = int((lower_bound + upper_bound) / 2)
                 
                 arrival_datetime = datetime.now() + timedelta(minutes=predicted_wait)
                 

@@ -16,6 +16,9 @@ class User(Base):
     role = Column(String, default="citizen") # citizen, staff, admin
     status = Column(String, default="active")
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+    assigned_office_id = Column(Integer, ForeignKey("offices.id"), nullable=True)
+    assigned_counter_id = Column(Integer, ForeignKey("counters.id"), nullable=True)
 
     def verify_password(self, plain_password):
         return pwd_context.verify(plain_password, self.password_hash)

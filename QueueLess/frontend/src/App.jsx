@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -8,13 +8,22 @@ import EmployeeDashboard from './pages/EmployeeDashboard';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import Profile from './pages/Profile';
 import Help from './pages/Help';
+import TrackRedirect from './pages/TrackRedirect';
+
+import AdminLayout from './pages/admin/AdminLayout';
+import AdminOffices from './pages/admin/AdminOffices';
+import AdminServices from './pages/admin/AdminServices';
+import AdminCounters from './pages/admin/AdminCounters';
+import AdminTokens from './pages/admin/AdminTokens';
+import AdminQueue from './pages/admin/AdminQueue';
 
 import Register from './pages/Register';
 
 // Layout Wrappers mapping UI consistently 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
+  const location = useLocation();
+  if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
   if (allowedRoles && !allowedRoles.includes(user.role)) return <Navigate to="/" replace />;
   return children;
 };
@@ -45,6 +54,7 @@ const App = () => {
           <Route path="/help" element={<Help />} />
           
           {/* Protected Citizen Routes */}
+          <Route path="/track" element={<ProtectedRoute><TrackRedirect /></ProtectedRoute>} />
           <Route path="/token/:tokenId" element={<ProtectedRoute><TokenLive /></ProtectedRoute>} />
           <Route path="/history" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
@@ -55,17 +65,19 @@ const App = () => {
           <Route path="/employee/counter" element={<ProtectedRoute allowedRoles={['employee', 'admin']}><Placeholder title="Counter Controller" /></ProtectedRoute>} />
           
           {/* Admin Routes */}
-          <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
-          <Route path="/admin/analytics" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminDashboard /></AdminLayout></ProtectedRoute>} />
+          <Route path="/admin/analytics" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminDashboard /></AdminLayout></ProtectedRoute>} />
           
-          <Route path="/admin/offices" element={<ProtectedRoute allowedRoles={['admin']}><Placeholder title="Office Management" /></ProtectedRoute>} />
-          <Route path="/admin/services" element={<ProtectedRoute allowedRoles={['admin']}><Placeholder title="Service Configurations" /></ProtectedRoute>} />
-          <Route path="/admin/counters" element={<ProtectedRoute allowedRoles={['admin']}><Placeholder title="Counter Configurations" /></ProtectedRoute>} />
-          <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']}><Placeholder title="User & Staff Database" /></ProtectedRoute>} />
-          <Route path="/admin/data" element={<ProtectedRoute allowedRoles={['admin']}><Placeholder title="Data Management" /></ProtectedRoute>} />
+          <Route path="/admin/offices" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminOffices /></AdminLayout></ProtectedRoute>} />
+          <Route path="/admin/services" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminServices /></AdminLayout></ProtectedRoute>} />
+          <Route path="/admin/counters" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminCounters /></AdminLayout></ProtectedRoute>} />
+          <Route path="/admin/tokens" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminTokens /></AdminLayout></ProtectedRoute>} />
+          <Route path="/admin/queue" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminQueue /></AdminLayout></ProtectedRoute>} />
           
-          <Route path="/admin/model" element={<ProtectedRoute allowedRoles={['admin']}><Placeholder title="ML Model Diagnostics" /></ProtectedRoute>} />
-          <Route path="/admin/audit" element={<ProtectedRoute allowedRoles={['admin']}><Placeholder title="Audit Logs (Read Only)" /></ProtectedRoute>} />
+          <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><Placeholder title="User & Staff Database" /></AdminLayout></ProtectedRoute>} />
+          <Route path="/admin/data" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><Placeholder title="Data Management" /></AdminLayout></ProtectedRoute>} />
+          <Route path="/admin/model" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><Placeholder title="ML Model Diagnostics" /></AdminLayout></ProtectedRoute>} />
+          <Route path="/admin/audit" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><Placeholder title="Audit Logs (Read Only)" /></AdminLayout></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>

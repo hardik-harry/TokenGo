@@ -28,7 +28,7 @@ const NotificationBell = () => {
          const brandNew = newItems.filter(n => !existingIds.includes(n.id));
          
          brandNew.forEach(n => {
-            new window.Notification("QueueLess Alert", {
+            new window.Notification("TokenGo Alert", {
                body: n.message,
                icon: '/vite.svg'
             });

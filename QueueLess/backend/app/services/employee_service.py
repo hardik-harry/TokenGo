@@ -6,12 +6,23 @@ from app.services.notification_service import NotificationService
 
 class EmployeeService:
     @staticmethod
-    def call_next(db: Session, office_id: int, service_id: int, employee_id: int):
-        token = db.query(Token).filter(
-            Token.office_id == office_id, 
-            Token.service_id == service_id, 
-            Token.status == "WAITING"
-        ).order_by(Token.created_at.asc()).first()
+    def call_next(db: Session, office_id: int, service_id: int, employee_id: int, counter_id: int = None):
+        if counter_id:
+            counter = db.query(Counter).filter(Counter.id == counter_id).first()
+            if not counter:
+                return None
+            svc_ids = [s.service_id for s in counter.services]
+            token = db.query(Token).filter(
+                Token.office_id == office_id, 
+                Token.service_id.in_(svc_ids), 
+                Token.status == "WAITING"
+            ).order_by(Token.id.asc()).first()
+        else:
+            token = db.query(Token).filter(
+                Token.office_id == office_id, 
+                Token.service_id == service_id, 
+                Token.status == "WAITING"
+            ).order_by(Token.id.asc()).first()
         
         if not token:
             raise HTTPException(status_code=404, detail="No waiting tokens in the queue.")

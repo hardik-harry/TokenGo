@@ -20,7 +20,7 @@ const Help = () => {
 
       <div className="container animate-fade-in" style={{ marginTop: '40px', maxWidth: '1000px' }}>
         <div style={{ textAlign: 'center', marginBottom: '50px' }}>
-          <h2 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#1e3a8a', marginBottom: '16px' }}>How to use QueueLess</h2>
+          <h2 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#1e3a8a', marginBottom: '16px' }}>How to use TokenGo</h2>
           <p style={{ fontSize: '1.1rem', color: '#475569' }}>Follow these simple steps to successfully retrieve your virtual line token and track it in real-time.</p>
         </div>
 

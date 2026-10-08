@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import NotificationBell from '../components/NotificationBell';
 import api from '../services/api';
+import { formatWaitDuration, calculateAverageWait } from '../utils/timeUtils';
 import { 
   Building2, ChevronRight, User, LogIn, Clock, 
   MapPin, CheckCircle, Search, Monitor, ArrowRight 
@@ -47,7 +48,14 @@ const Home = () => {
          office_id: parseInt(selectedOffice),
          service_id: parseInt(selectedService)
       }).then(res => {
-         setPrediction(res.data);
+         let data = res.data;
+         if (data.predicted_wait_minutes > 90 || data.predicted_wait_minutes < 0 || isNaN(data.predicted_wait_minutes)) {
+             console.warn("Unexpected prediction value from backend:", data);
+             data.predicted_wait_minutes = Math.max(5, Math.min(90, data.predicted_wait_minutes || 15));
+             data.lower_bound_minutes = Math.max(1, Math.min(data.predicted_wait_minutes, data.lower_bound_minutes || 10));
+             data.upper_bound_minutes = Math.min(90, Math.max(data.predicted_wait_minutes, data.upper_bound_minutes || 20));
+         }
+         setPrediction(data);
          setIsLoading(false);
       }).catch(() => {
          setPrediction(null);
@@ -82,13 +90,13 @@ const Home = () => {
       <nav className="navbar">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => navigate('/')}>
           <Building2 size={28} color="var(--primary-color)" />
-          <h1 style={{ color: 'var(--primary-color)', fontSize: '1.4rem', fontWeight: 700 }}>Queue<span style={{ color: 'var(--accent-color)' }}>Less</span></h1>
+          <h1 style={{ color: 'var(--primary-color)', fontSize: '1.4rem', fontWeight: 700 }}>Token<span style={{ color: 'var(--accent-color)' }}>Go</span></h1>
         </div>
         
         <div className="nav-links">
           <a href="#" className="nav-link" style={{ color: 'var(--primary-color)', fontWeight: 600 }}>Home</a>
           <a href="#services" className="nav-link">Services</a>
-          <a href="/profile" className="nav-link" onClick={(e) => { e.preventDefault(); navigate('/profile'); }}>Track Token</a>
+          <a href="/track" className="nav-link" onClick={(e) => { e.preventDefault(); navigate('/track'); }}>Track Token</a>
           <a href="/help" className="nav-link" onClick={(e) => { e.preventDefault(); navigate('/help'); }}>Help</a>
           
           <div style={{ marginLeft: '16px', borderLeft: '1px solid var(--border-color)', paddingLeft: '24px', display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -154,7 +162,7 @@ const Home = () => {
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
                     <div>
                       <div className="label">Estimated Wait</div>
-                      <div style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--primary-color)' }}>{prediction.predicted_wait_minutes} min</div>
+                      <div style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--primary-color)' }}>{formatWaitDuration(calculateAverageWait(prediction.lower_bound_minutes, prediction.upper_bound_minutes))}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div className="label">Recommended Arrival</div>
@@ -163,7 +171,7 @@ const Home = () => {
                   </div>
                   
                   <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
-                    <span>Bounds: {prediction.lower_bound_minutes}-{prediction.upper_bound_minutes} min</span>
+                    <span>Bounds: {formatWaitDuration(prediction.lower_bound_minutes)} – {formatWaitDuration(prediction.upper_bound_minutes)}</span>
                     <span>Source: {prediction.prediction_source}</span>
                   </div>
                 </div>
@@ -236,7 +244,7 @@ const Home = () => {
       <footer className="footer">
         <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0' }}>
            <div>
-             <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '10px' }}>QueueLess Platform</h2>
+             <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '10px' }}>TokenGo Platform</h2>
              <p style={{ opacity: 0.8, fontSize: '0.9rem' }}>© 2026 Official Virtual Queuing Transport Portal. <br/>All Rights Reserved.</p>
            </div>
            

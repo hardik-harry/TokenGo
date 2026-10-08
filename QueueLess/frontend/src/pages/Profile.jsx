@@ -161,7 +161,7 @@ const Profile = () => {
             <div style={{ background: 'var(--primary-color)', color: 'white', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }} onClick={() => navigate('/')}>
                     <ActivitySquare size={24} color="var(--accent-color)" /> 
-                    <span style={{ fontSize: '1.25rem', fontWeight: 600 }}>QueueLess</span>
+                    <span style={{ fontSize: '1.25rem', fontWeight: 600 }}>TokenGo</span>
                 </div>
                 <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
                     <NotificationBell />

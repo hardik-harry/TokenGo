@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import { formatWaitDuration } from '../../utils/timeUtils';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, ComposedChart, Area
 } from 'recharts';
 import { 
   Activity, Users, CheckCircle, TrendingUp, 
-  MapPin, BrainCircuit, ActivitySquare, AlertTriangle 
+  MapPin, BrainCircuit, ActivitySquare, AlertTriangle, Clock 
 } from 'lucide-react';
 
 const COLORS = ['#0c3b7a', '#fb923c', '#10b981', '#3b82f6', '#8b5cf6'];
@@ -40,7 +41,7 @@ const AdminDashboard = () => {
       {/* Top Bar */}
       <div style={{ background: '#0f172a', color: 'white', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 style={{ fontSize: '1.25rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <ActivitySquare size={20} color="var(--accent-color)" /> QueueLess Global Command Center
+          <ActivitySquare size={20} color="var(--accent-color)" /> TokenGo Global Command Center
         </h1>
         <button className="btn-outline" style={{ color: 'white', borderColor: 'rgba(255,255,255,0.2)' }} onClick={() => navigate('/')}>Exit Admin</button>
       </div>
@@ -105,8 +106,8 @@ const AdminDashboard = () => {
              <Clock size={32} color="var(--primary-color)" />
              <div>
                <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Avg Wait Time</div>
-               <strong style={{ fontSize: '1.3rem' }}>{kpis.avg_wait_minutes} mins</strong>
-               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Median: {kpis.median_wait_minutes}m | P95: {kpis.p95_wait_minutes}m</div>
+               <strong style={{ fontSize: '1.3rem' }}>{formatWaitDuration(kpis.avg_wait_minutes)}</strong>
+               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Median: {formatWaitDuration(kpis.median_wait_minutes)} | P95: {formatWaitDuration(kpis.p95_wait_minutes)}</div>
              </div>
            </div>
            
@@ -114,7 +115,7 @@ const AdminDashboard = () => {
              <Activity size={32} color="var(--primary-color)" />
              <div>
                <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Avg Service Duration</div>
-               <strong style={{ fontSize: '1.3rem' }}>{kpis.avg_service_minutes} mins</strong>
+               <strong style={{ fontSize: '1.3rem' }}>{formatWaitDuration(kpis.avg_service_minutes)}</strong>
              </div>
            </div>
            

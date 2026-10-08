@@ -5,6 +5,7 @@ import {
   Ticket, MapPin, Monitor, Clock, Users, ArrowLeft, 
   WifiOff, Wifi, AlertTriangle, CheckCircle 
 } from 'lucide-react';
+import { formatWaitDuration, calculateAverageWait } from '../utils/timeUtils';
 
 const TokenLive = () => {
   const { tokenId } = useParams();
@@ -14,13 +15,7 @@ const TokenLive = () => {
   const [officeName, setOfficeName] = useState('Loading Office...');
   const [serviceName, setServiceName] = useState('Loading Service...');
   
-  const formatTime = (totalMinutes) => {
-    if (!totalMinutes) return '0 min';
-    if (totalMinutes < 60) return `${totalMinutes} min`;
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    return `${hours} hr ${minutes} min`;
-  };
+  // formatTime is safely removed since we utilize centralized formatWaitDuration
   
   // Realtime Socket Payload Fields
   const [liveData, setLiveData] = useState({
@@ -262,10 +257,10 @@ const TokenLive = () => {
                <div>
                   <div style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>Estimated Wait</div>
                   <div style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--primary-color)', display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                    {formatTime(liveData.predicted_wait_minutes)}
+                    {formatWaitDuration(calculateAverageWait(liveData.lower_bound_minutes, liveData.upper_bound_minutes))}
                   </div>
                   <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                    Prediction Range: {formatTime(liveData.lower_bound_minutes)} – {formatTime(liveData.upper_bound_minutes)}
+                    Prediction Range: {formatWaitDuration(liveData.lower_bound_minutes)} – {formatWaitDuration(liveData.upper_bound_minutes)}
                   </div>
                </div>
 

@@ -13,6 +13,13 @@ const EmployeeDashboard = () => {
 
   // Employee Context Stats
   const [assignedInfo, setAssignedInfo] = useState(null);
+  const [needsAssignment, setNeedsAssignment] = useState(false);
+  const [offices, setOffices] = useState([]);
+  const [counters, setCounters] = useState([]);
+  const [selectedOffice, setSelectedOffice] = useState('');
+  const [selectedCounter, setSelectedCounter] = useState('');
+  const [assignmentLoading, setAssignmentLoading] = useState(false);
+  
   const [queueHealth, setQueueHealth] = useState("Excellent");
   const [activeCounterStatus, setActiveCounterStatus] = useState("loading");
 
@@ -22,8 +29,10 @@ const EmployeeDashboard = () => {
     completed: 0,
     skipped: 0,
     active_counters: 1,
+    active_counters: 1,
     avg_duration: 15
   });
+  const [waitingTokens, setWaitingTokens] = useState([]);
 
   // Current Handling State
   const [servingToken, setServingToken] = useState(null);
@@ -54,8 +63,9 @@ const EmployeeDashboard = () => {
         skipped: data.skipped_tokens.length,
         no_show: data.no_show_tokens.length,
         active_counters: activeCounterStatus === "active" ? 1 : 0, 
-        avg_duration: 15 // Inherited baseline static for layout structure matching scope 
+        avg_duration: 15
       });
+      setWaitingTokens(data.waiting_tokens || []);
       
       if (data.current_token) {
          setServingToken(data.current_token);
@@ -67,14 +77,47 @@ const EmployeeDashboard = () => {
   };
 
   useEffect(() => {
-    // 1. Fetch authorized assignment
+    // 1. Fetch authorized assignment natively
     api.get('/employee/assigned-info').then(res => {
-      setAssignedInfo(res.data);
-      setActiveCounterStatus("active");
+      if (res.data) {
+        setAssignedInfo(res.data);
+        setActiveCounterStatus("active");
+      } else {
+        setNeedsAssignment(true);
+        api.get('/offices').then(oRes => setOffices(oRes.data));
+      }
     }).catch(e => {
       console.error("Assignment Error:", e);
     });
   }, []);
+
+  useEffect(() => {
+    if (needsAssignment && selectedOffice) {
+        api.get(`/offices/${selectedOffice}/counters`).then(res => setCounters(res.data));
+    } else {
+        setCounters([]);
+    }
+  }, [selectedOffice, needsAssignment]);
+
+  const confirmAssignment = async () => {
+     if (!selectedOffice || !selectedCounter) return;
+     setAssignmentLoading(true);
+     try {
+       await api.post('/employee/assign', {
+          office_id: parseInt(selectedOffice),
+          counter_id: parseInt(selectedCounter)
+       });
+       // Re-fetch info
+       const res = await api.get('/employee/assigned-info');
+       setAssignedInfo(res.data);
+       setActiveCounterStatus("active");
+       setNeedsAssignment(false);
+     } catch (e) {
+       alert("Failed to confirm assignment.");
+     } finally {
+       setAssignmentLoading(false);
+     }
+  };
 
   useEffect(() => {
     // Sync loop
@@ -138,6 +181,43 @@ const EmployeeDashboard = () => {
     }
   };
 
+  if (needsAssignment) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-secondary)' }}>
+         <div style={{ background: 'var(--primary-color)', color: 'white', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 600 }}>TokenGo Employee Console</h2>
+            <span>Officer: <strong>{user?.name}</strong></span>
+         </div>
+         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+            <div className="card animate-fade-in" style={{ width: '100%', maxWidth: '500px', padding: '40px' }}>
+               <h2 style={{ fontSize: '1.5rem', marginBottom: '10px', color: 'var(--primary-color)' }}>Select Workstation</h2>
+               <p style={{ color: 'var(--text-secondary)', marginBottom: '30px' }}>Please assign yourself to a specific physical counter to begin processing the queue organically.</p>
+               
+               <div style={{ marginBottom: '20px' }}>
+                  <label className="label">1. RTO Office</label>
+                  <select className="select-field" value={selectedOffice} onChange={e => { setSelectedOffice(e.target.value); setSelectedCounter(''); }}>
+                     <option value="">-- Select Office --</option>
+                     {offices.map(o => <option key={o.id} value={o.id}>{o.name} ({o.city})</option>)}
+                  </select>
+               </div>
+               
+               <div style={{ marginBottom: '30px' }}>
+                  <label className="label">2. Counter Terminal</label>
+                  <select className="select-field" value={selectedCounter} onChange={e => setSelectedCounter(e.target.value)} disabled={!selectedOffice}>
+                     <option value="">-- Select Counter --</option>
+                     {counters.map(c => <option key={c.id} value={c.id}>{c.counter_name}</option>)}
+                  </select>
+               </div>
+               
+               <button className="btn-primary" style={{ width: '100%' }} onClick={confirmAssignment} disabled={!selectedCounter || assignmentLoading}>
+                  {assignmentLoading ? "Securing Assignment..." : "Confirm Counter & Login"}
+               </button>
+            </div>
+         </div>
+      </div>
+    );
+  }
+
   if (!assignedInfo) return <div style={{ padding: '60px', textAlign: 'center' }}>Validating Employee Credentials...</div>;
 
   return (
@@ -145,7 +225,7 @@ const EmployeeDashboard = () => {
       
       {/* Top Bar */}
       <div style={{ background: 'var(--primary-color)', color: 'white', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ fontSize: '1.2rem', fontWeight: 600 }}>QueueLess Employee Console</h2>
+        <h2 style={{ fontSize: '1.2rem', fontWeight: 600 }}>TokenGo Employee Console</h2>
         <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
           <span>Officer: <strong>{user?.name}</strong></span>
           <button className="btn-outline" style={{ color: 'white', borderColor: 'rgba(255,255,255,0.4)', padding: '6px 12px' }} onClick={() => navigate('/')}>Exit Console</button>
@@ -157,8 +237,8 @@ const EmployeeDashboard = () => {
         {/* Quick Assignment Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <div>
-            <h1 style={{ fontSize: '1.8rem', color: 'var(--text-primary)', fontWeight: 700 }}>Counter #{assignedInfo.assigned_counter_id} Dashboard</h1>
-            <p style={{ color: 'var(--text-secondary)' }}>Operating on RTO Office #{assignedInfo.assigned_office_id}, Service #{assignedInfo.assigned_service_id}</p>
+            <h1 style={{ fontSize: '1.8rem', color: 'var(--text-primary)', fontWeight: 700 }}>{assignedInfo.counter_name} Dashboard</h1>
+            <p style={{ color: 'var(--text-secondary)' }}>Operating collaboratively at {assignedInfo.office_name}</p>
           </div>
           <div style={{ display: 'flex', gap: '15px' }}>
             <div style={{ padding: '10px 16px', background: activeCounterStatus === 'active' ? 'rgba(22, 163, 74, 0.1)' : 'rgba(245, 158, 11, 0.1)', color: activeCounterStatus === 'active' ? 'var(--success-color)' : 'var(--warning-color)', borderRadius: '6px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -232,7 +312,7 @@ const EmployeeDashboard = () => {
                  
                  <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                     {servingToken.status === 'CALLED' && (
-                      <button className="btn-accent" style={{ padding: '16px 30px', fontSize: '1.1rem' }} onClick={() => updateStatus('SERVING')} disabled={actionLoading}>
+                      <button className="btn-accent" style={{ padding: '16px 30px', fontSize: '1.1rem' }} onClick={() => updateStatus('SERVING')} disabled={actionLoading || activeCounterStatus !== 'active'}>
                          <Play size={20} /> START SERVICE
                       </button>
                     )}
@@ -272,6 +352,44 @@ const EmployeeDashboard = () => {
            )}
 
         </div>
+
+
+         {/* Live Waiting Queue Table */}
+         <div className="card" style={{ marginTop: '30px' }}>
+             <h3 style={{ marginBottom: '20px', color: 'var(--primary-color)' }}>Waiting Tokens Queue</h3>
+             {waitingTokens.length === 0 ? (
+                 <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>No tokens are currently waiting.</div>
+             ) : (
+                 <div style={{ overflowX: 'auto' }}>
+                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                         <thead>
+                             <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+                                 <th style={{ padding: '12px' }}>Token</th>
+                                 <th style={{ padding: '12px' }}>Service</th>
+                                 <th style={{ padding: '12px' }}>Position</th>
+                                 <th style={{ padding: '12px' }}>Ahead</th>
+                                 <th style={{ padding: '12px' }}>Created</th>
+                                 <th style={{ padding: '12px' }}>Est. Wait</th>
+                                 <th style={{ padding: '12px' }}>Status</th>
+                             </tr>
+                         </thead>
+                         <tbody>
+                             {waitingTokens.map(t => (
+                                 <tr key={t.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                     <td style={{ padding: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>{t.number}</td>
+                                     <td style={{ padding: '12px' }}>{t.service}</td>
+                                     <td style={{ padding: '12px' }}>#{t.position}</td>
+                                     <td style={{ padding: '12px' }}>{t.people_ahead}</td>
+                                     <td style={{ padding: '12px' }}>{t.created_at}</td>
+                                     <td style={{ padding: '12px', color: 'var(--accent-color)', fontWeight: 600 }}>~{Math.round(t.base_wait_mins)} min</td>
+                                     <td style={{ padding: '12px' }}><span className="badge badge-warning" style={{ fontSize: '0.8rem', padding: '4px 8px' }}>WAITING</span></td>
+                                 </tr>
+                             ))}
+                         </tbody>
+                     </table>
+                 </div>
+             )}
+         </div>
       </div>
     </div>
   );

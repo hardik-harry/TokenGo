@@ -3,15 +3,14 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from app.api import deps
-from app.models.models import User, Token, Counter
+from app.models.models import User, Token, Counter, Office
 from app.services.employee_service import EmployeeService
 from app.websocket.manager import manager
 
 router = APIRouter()
 
 class CallNextRequest(BaseModel):
-    office_id: int
-    service_id: int
+    pass
 
 class UpdateStatusRequest(BaseModel):
     status: str
@@ -27,8 +26,13 @@ def call_next_token(
 ) -> Any:
     if current_user.role not in ["employee", "admin"]:
         raise HTTPException(status_code=403, detail="Not authorized.")
+    if not current_user.assigned_office_id or not current_user.assigned_counter_id:
+        raise HTTPException(status_code=400, detail="Counter not assigned")
         
-    token = EmployeeService.call_next(db, req.office_id, req.service_id, current_user.id)
+    token = EmployeeService.call_next(db, current_user.assigned_office_id, None, current_user.id, current_user.assigned_counter_id)
+    if not token:
+        raise HTTPException(status_code=404, detail="No eligible tokens are currently waiting.")
+        
     bg_tasks.add_task(manager.broadcast_queue_state, token.office_id, token.service_id)
     return {"id": token.id, "token_number": token.token_number, "status": token.status}
 
@@ -120,24 +124,46 @@ def get_dashboard(
     if current_user.role not in ["employee", "admin"]:
         raise HTTPException(status_code=403, detail="Not authorized.")
     
-    # Securely retrieve data only for this context preventing unauthorized leaks
-    waiting = db.query(Token).filter(Token.office_id == office_id, Token.service_id == service_id, Token.status == "WAITING").all()
-    current_token = db.query(Token).filter(Token.office_id == office_id, Token.service_id == service_id, Token.status.in_(["CALLED", "SERVING"])).first()
-    completed = db.query(Token).filter(Token.office_id == office_id, Token.service_id == service_id, Token.status == "COMPLETED").all()
-    skipped = db.query(Token).filter(Token.office_id == office_id, Token.service_id == service_id, Token.status == "SKIPPED").all()
-    no_show = db.query(Token).filter(Token.office_id == office_id, Token.service_id == service_id, Token.status == "NO_SHOW").all()
+    waiting = []
+    completed = []
+    skipped = []
+    no_show = []
+    current_token = None
     
-    counter = db.query(Counter).filter(Counter.id == counter_id, Counter.office_id == office_id).first()
+    counter = db.query(Counter).filter(Counter.id == current_user.assigned_counter_id).first()
     ctr_status = counter.status if counter else "unknown"
+    
+    # We must fetch the queue for ALL services bound to this counter natively
+    svc_ids = [svc.service_id for svc in counter.services] if counter else []
+    
+    if svc_ids:
+        waiting = db.query(Token).filter(Token.office_id == current_user.assigned_office_id, Token.service_id.in_(svc_ids), Token.status == "WAITING").order_by(Token.id).all()
+        current_token = db.query(Token).filter(Token.office_id == current_user.assigned_office_id, Token.service_id.in_(svc_ids), Token.status.in_(["CALLED", "SERVING"]), Token.events.any(employee_id=current_user.id)).first()
+        completed = db.query(Token).filter(Token.office_id == current_user.assigned_office_id, Token.service_id.in_(svc_ids), Token.status == "COMPLETED").order_by(Token.id.desc()).limit(50).all()
+        skipped = db.query(Token).filter(Token.office_id == current_user.assigned_office_id, Token.service_id.in_(svc_ids), Token.status == "SKIPPED").order_by(Token.id.desc()).limit(20).all()
+        no_show = db.query(Token).filter(Token.office_id == current_user.assigned_office_id, Token.service_id.in_(svc_ids), Token.status == "NO_SHOW").order_by(Token.id.desc()).limit(20).all()
+
+    waiting_list = []
+    for i, t in enumerate(waiting):
+        waiting_list.append({
+            "id": t.id, 
+            "number": t.token_number,
+            "service": t.service.name if t.service else "Unknown",
+            "position": i + 1,
+            "people_ahead": i,
+            "created_at": t.created_at.strftime("%I:%M %p") if t.created_at else "Unknown",
+            "base_wait_mins": ((i + 1) * (t.service.baseline_service_minutes or 20)) / max(1, len(svc_ids))
+        })
 
     return {
-        "waiting_tokens": [{"id": t.id, "number": t.token_number} for t in waiting],
+        "waiting_tokens": waiting_list,
         "current_token": {"id": current_token.id, "number": current_token.token_number, "status": current_token.status} if current_token else None,
         "completed_tokens": [{"id": t.id, "number": t.token_number} for t in completed],
         "skipped_tokens": [{"id": t.id, "number": t.token_number} for t in skipped],
         "no_show_tokens": [{"id": t.id, "number": t.token_number} for t in no_show],
         "queue_length": len(waiting),
-        "counter_status": ctr_status
+        "counter_status": ctr_status,
+        "services": svc_ids
     }
 
 @router.get("/assigned-info")
@@ -148,12 +174,37 @@ def get_assigned_info(
 ) -> Any:
     if current_user.role not in ["employee", "admin"]:
         raise HTTPException(status_code=403, detail="Not authorized.")
-    
+    if not current_user.assigned_office_id:
+        return None
+        
+    office = db.query(Office).filter(Office.id == current_user.assigned_office_id).first()
+    counter = db.query(Counter).filter(Counter.id == current_user.assigned_counter_id).first()
+        
     return {
-       "assigned_office_id": 1,
-       "assigned_service_id": 1,
-       "assigned_counter_id": 1
+       "assigned_office_id": current_user.assigned_office_id,
+       "office_name": office.name if office else "",
+       "assigned_counter_id": current_user.assigned_counter_id,
+       "counter_name": counter.counter_name if counter else ""
     }
+
+class AssignRequest(BaseModel):
+    office_id: int
+    counter_id: int
+
+@router.post("/assign")
+def assign_employee(
+    *,
+    db: Session = Depends(deps.get_db),
+    req: AssignRequest,
+    current_user: User = Depends(deps.get_current_active_user)
+) -> Any:
+    if current_user.role not in ["employee", "admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized.")
+        
+    current_user.assigned_office_id = req.office_id
+    current_user.assigned_counter_id = req.counter_id
+    db.commit()
+    return {"status": "success"}
 
 @router.post("/counters/{counter_id}/status")
 def update_counter(

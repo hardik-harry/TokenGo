@@ -39,7 +39,7 @@ const Register = () => {
             <UserPlus size={32} color="var(--primary-color)" />
           </div>
           <h2 style={{ fontSize: '1.8rem', fontWeight: 600 }}>Create Account</h2>
-          <p style={{ color: 'var(--text-secondary)' }}>Join QueueLess today</p>
+          <p style={{ color: 'var(--text-secondary)' }}>Join TokenGo today</p>
         </div>
 
         {error && (

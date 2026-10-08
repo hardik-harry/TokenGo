@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LogIn, Key, Mail, AlertTriangle } from 'lucide-react';
 
@@ -9,6 +9,7 @@ const Login = () => {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
 
   const handleSubmit = async (e) => {
@@ -17,9 +18,19 @@ const Login = () => {
     setError('');
     try {
       const decoded = await login(email, password);
-      if (decoded.role === 'admin') navigate('/admin');
-      else if (decoded.role === 'employee') navigate('/employee');
-      else navigate('/offices');
+      
+      if (decoded.role === 'admin') {
+        navigate('/admin');
+      } else if (decoded.role === 'employee') {
+        navigate('/employee');
+      } else {
+        const from = location.state?.from?.pathname;
+        if (from) {
+          navigate(from, { replace: true });
+        } else {
+          navigate('/offices');
+        }
+      }
     } catch (err) {
       let errorMsg = 'Invalid email or password.';
       if (err.response?.data?.detail) {
@@ -41,7 +52,7 @@ const Login = () => {
             <LogIn size={32} color="var(--primary-color)" />
           </div>
           <h2 style={{ fontSize: '1.8rem', fontWeight: 600 }}>Welcome Back</h2>
-          <p style={{ color: 'var(--text-secondary)' }}>Sign in to continue to QueueLess</p>
+          <p style={{ color: 'var(--text-secondary)' }}>Sign in to continue to TokenGo</p>
         </div>
 
         {error && (
