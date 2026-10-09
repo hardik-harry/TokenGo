@@ -1,15 +1,44 @@
-from typing import Any
+from typing import Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timedelta
 import os
 import json
+from pydantic import BaseModel
 
 from app.api import deps
 from app.models.models import User, Token, ServiceSession, Office, Service
 
 router = APIRouter()
+
+# ── Shared schemas ────────────────────────────────────────────────────────────
+class OfficeCreate(BaseModel):
+    name: str
+    city: str
+    address: Optional[str] = None
+    status: Optional[str] = "active"
+
+class ServiceCreate(BaseModel):
+    name: str
+    code: str
+    description: Optional[str] = None
+    baseline_service_minutes: Optional[int] = 15
+    status: Optional[str] = "active"
+    office_id: int
+
+class CounterCreate(BaseModel):
+    office_id: int
+    counter_name: str
+    status: Optional[str] = "active"
+
+class EmployeeUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    mobile_number: Optional[str] = None
+    assigned_office_id: Optional[int] = None
+    assigned_counter_id: Optional[int] = None
+    status: Optional[str] = None
 
 @router.get("/analytics")
 def get_admin_analytics(db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_active_user)) -> Any:
@@ -46,7 +75,11 @@ def get_admin_analytics(db: Session = Depends(deps.get_db), current_user: User =
     from collections import defaultdict
 
     completed_tk = db.query(Token).filter(Token.status == "COMPLETED").all()
-    wait_times = [(tk.updated_at - tk.created_at).total_seconds() / 60 for tk in completed_tk if tk.updated_at]
+    wait_times = []
+    for tk in completed_tk:
+        session = db.query(ServiceSession).filter(ServiceSession.token_id == tk.id).first()
+        if session and session.started_at:
+            wait_times.append((session.started_at - tk.created_at).total_seconds() / 60)
     wait_times.sort()
     
     if wait_times:
@@ -59,20 +92,23 @@ def get_admin_analytics(db: Session = Depends(deps.get_db), current_user: User =
     
     throughput_hr = round(len(completed_tk) / max(1, 24), 1)  # Natively resolving against active 24h baseline
 
-    # Time Series generating actual exact grouped dates!
+    # Time Series padding last 7 days
     daily_tks = db.query(
         func.date(Token.created_at).label('date'),
         func.count(Token.id).label('total')
-    ).group_by(func.date(Token.created_at)).order_by(func.date(Token.created_at).asc()).limit(7).all()
+    ).group_by(func.date(Token.created_at)).all()
     
-    daily_volume = [
-        {"day": dt.strftime("%a"), "tokens": cnt, "avg_wait": avg_wait} 
-        for dt, cnt in daily_tks
-    ]
+    daily_map = {dt: cnt for dt, cnt in daily_tks}
     
-    # Fallback to prevent blank graph tearing if DB is pristine
-    if not daily_volume:
-        daily_volume = [{"day": today.strftime("%a"), "tokens": total_tokens, "avg_wait": avg_wait}]
+    daily_volume = []
+    for i in range(6, -1, -1):
+        d = today - timedelta(days=i)
+        cnt = daily_map.get(d, 0)
+        daily_volume.append({
+            "day": d.strftime("%a"), 
+            "tokens": cnt, 
+            "avg_wait": avg_wait if cnt > 0 else 0
+        })
 
     # Peak Hour Mapping
     hours = [tk.created_at.hour for tk in db.query(Token.created_at).all()]
@@ -132,28 +168,7 @@ def get_model_metrics(current_user: User = Depends(deps.get_current_active_user)
         "status": "No model trained globally."
     }
 
-from pydantic import BaseModel
-from typing import List, Optional
-
-class OfficeCreate(BaseModel):
-    name: str
-    city: str
-    address: Optional[str] = None
-    status: Optional[str] = "active"
-
-class ServiceCreate(BaseModel):
-    name: str
-    code: str
-    description: Optional[str] = None
-    baseline_service_minutes: Optional[int] = 15
-    status: Optional[str] = "active"
-    office_id: int
-
-class CounterCreate(BaseModel):
-    office_id: int
-    counter_name: str
-    status: Optional[str] = "active"
-
+# ── OFFICES ───────────────────────────────────────────────────────────────────
 @router.get("/offices")
 def get_admin_offices(db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_active_user)):
     if current_user.role != "admin": raise HTTPException(status_code=403, detail="Admin only")
@@ -162,6 +177,8 @@ def get_admin_offices(db: Session = Depends(deps.get_db), current_user: User = D
 @router.post("/offices")
 def create_admin_office(office: OfficeCreate, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_active_user)):
     if current_user.role != "admin": raise HTTPException(status_code=403, detail="Admin only")
+    if not office.name.strip() or not office.city.strip():
+        raise HTTPException(status_code=422, detail="Name and city are required.")
     db_office = Office(**office.dict())
     db.add(db_office)
     db.commit()
@@ -171,13 +188,29 @@ def create_admin_office(office: OfficeCreate, db: Session = Depends(deps.get_db)
 @router.put("/offices/{office_id}")
 def update_admin_office(office_id: int, office: OfficeCreate, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_active_user)):
     if current_user.role != "admin": raise HTTPException(status_code=403, detail="Admin only")
+    if not office.name.strip() or not office.city.strip():
+        raise HTTPException(status_code=422, detail="Name and city are required.")
     db_office = db.query(Office).filter(Office.id == office_id).first()
-    if not db_office: raise HTTPException(status_code=404)
+    if not db_office: raise HTTPException(status_code=404, detail="Office not found")
     for k, v in office.dict().items(): setattr(db_office, k, v)
     db.commit()
     db.refresh(db_office)
     return db_office
 
+@router.delete("/offices/{office_id}")
+def delete_admin_office(office_id: int, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_active_user)):
+    if current_user.role != "admin": raise HTTPException(status_code=403, detail="Admin only")
+    db_office = db.query(Office).filter(Office.id == office_id).first()
+    if not db_office: raise HTTPException(status_code=404, detail="Office not found")
+    # Safety: prevent deletion if tokens exist
+    token_count = db.query(Token).filter(Token.office_id == office_id).count()
+    if token_count > 0:
+        raise HTTPException(status_code=400, detail=f"Cannot delete: {token_count} tokens are linked to this office.")
+    db.delete(db_office)
+    db.commit()
+    return {"success": True, "message": "Office deleted successfully."}
+
+# ── SERVICES ──────────────────────────────────────────────────────────────────
 @router.get("/services")
 def get_admin_services(db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_active_user)):
     if current_user.role != "admin": raise HTTPException(status_code=403, detail="Admin only")
@@ -186,28 +219,48 @@ def get_admin_services(db: Session = Depends(deps.get_db), current_user: User = 
 @router.post("/services")
 def create_admin_service(service: ServiceCreate, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_active_user)):
     if current_user.role != "admin": raise HTTPException(status_code=403, detail="Admin only")
+    if not service.name.strip() or not service.code.strip():
+        raise HTTPException(status_code=422, detail="Name and code are required.")
     from app.models.models import OfficeService
-    db_service = Service(name=service.name, code=service.code, description=service.description, baseline_service_minutes=service.baseline_service_minutes, status=service.status)
+    db_service = Service(name=service.name, code=service.code, description=service.description,
+                         baseline_service_minutes=service.baseline_service_minutes, status=service.status)
     db.add(db_service)
     db.flush()
     oserv = OfficeService(office_id=service.office_id, service_id=db_service.id)
     db.add(oserv)
     db.commit()
+    db.refresh(db_service)
     return db_service
 
 @router.put("/services/{service_id}")
 def update_admin_service(service_id: int, service: ServiceCreate, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_active_user)):
     if current_user.role != "admin": raise HTTPException(status_code=403, detail="Admin only")
+    if not service.name.strip() or not service.code.strip():
+        raise HTTPException(status_code=422, detail="Name and code are required.")
     db_service = db.query(Service).filter(Service.id == service_id).first()
-    if not db_service: raise HTTPException(status_code=404)
+    if not db_service: raise HTTPException(status_code=404, detail="Service not found")
     db_service.name = service.name
     db_service.code = service.code
     db_service.description = service.description
     db_service.baseline_service_minutes = service.baseline_service_minutes
     db_service.status = service.status
     db.commit()
+    db.refresh(db_service)
     return db_service
 
+@router.delete("/services/{service_id}")
+def delete_admin_service(service_id: int, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_active_user)):
+    if current_user.role != "admin": raise HTTPException(status_code=403, detail="Admin only")
+    db_service = db.query(Service).filter(Service.id == service_id).first()
+    if not db_service: raise HTTPException(status_code=404, detail="Service not found")
+    token_count = db.query(Token).filter(Token.service_id == service_id).count()
+    if token_count > 0:
+        raise HTTPException(status_code=400, detail=f"Cannot delete: {token_count} tokens are linked to this service.")
+    db.delete(db_service)
+    db.commit()
+    return {"success": True, "message": "Service deleted successfully."}
+
+# ── COUNTERS ──────────────────────────────────────────────────────────────────
 @router.get("/counters")
 def get_admin_counters(db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_active_user)):
     if current_user.role != "admin": raise HTTPException(status_code=403, detail="Admin only")
@@ -216,14 +269,20 @@ def get_admin_counters(db: Session = Depends(deps.get_db), current_user: User = 
     res = []
     for c in counters:
         o = db.query(Office).filter(Office.id == c.office_id).first()
+        # Get assigned employee if any
+        emp = db.query(User).filter(User.assigned_counter_id == c.id, User.role == "employee").first()
         res.append({
-            "id": c.id, "counter_name": c.counter_name, "office_id": c.office_id, "status": c.status, "office_name": o.name if o else "Unknown"
+            "id": c.id, "counter_name": c.counter_name, "office_id": c.office_id,
+            "status": c.status, "office_name": o.name if o else "Unknown",
+            "employee_name": emp.name if emp else None, "employee_email": emp.email if emp else None
         })
     return res
 
 @router.post("/counters")
 def create_admin_counter(counter: CounterCreate, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_active_user)):
     if current_user.role != "admin": raise HTTPException(status_code=403, detail="Admin only")
+    if not counter.counter_name.strip():
+        raise HTTPException(status_code=422, detail="Counter name is required.")
     from app.models.models import Counter
     c = Counter(**counter.dict())
     db.add(c)
@@ -234,21 +293,76 @@ def create_admin_counter(counter: CounterCreate, db: Session = Depends(deps.get_
 @router.put("/counters/{counter_id}")
 def update_admin_counter(counter_id: int, counter: CounterCreate, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_active_user)):
     if current_user.role != "admin": raise HTTPException(status_code=403, detail="Admin only")
+    if not counter.counter_name.strip():
+        raise HTTPException(status_code=422, detail="Counter name is required.")
     from app.models.models import Counter
     db_counter = db.query(Counter).filter(Counter.id == counter_id).first()
-    if not db_counter: raise HTTPException(status_code=404)
+    if not db_counter: raise HTTPException(status_code=404, detail="Counter not found")
     for k, v in counter.dict().items(): setattr(db_counter, k, v)
     db.commit()
     db.refresh(db_counter)
     return db_counter
 
+@router.delete("/counters/{counter_id}")
+def delete_admin_counter(counter_id: int, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_active_user)):
+    if current_user.role != "admin": raise HTTPException(status_code=403, detail="Admin only")
+    from app.models.models import Counter
+    db_counter = db.query(Counter).filter(Counter.id == counter_id).first()
+    if not db_counter: raise HTTPException(status_code=404, detail="Counter not found")
+    # Un-assign any employees linked to this counter
+    db.query(User).filter(User.assigned_counter_id == counter_id).update({"assigned_counter_id": None, "assigned_office_id": None})
+    db.delete(db_counter)
+    db.commit()
+    return {"success": True, "message": "Counter deleted successfully."}
+
+# ── EMPLOYEES ─────────────────────────────────────────────────────────────────
+@router.get("/employees")
+def get_admin_employees(db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_active_user)):
+    if current_user.role != "admin": raise HTTPException(status_code=403, detail="Admin only")
+    from app.models.models import Counter
+    employees = db.query(User).filter(User.role == "employee").all()
+    res = []
+    for emp in employees:
+        office = db.query(Office).filter(Office.id == emp.assigned_office_id).first() if emp.assigned_office_id else None
+        counter = db.query(Counter).filter(Counter.id == emp.assigned_counter_id).first() if emp.assigned_counter_id else None
+        res.append({
+            "id": emp.id, "name": emp.name, "email": emp.email,
+            "mobile_number": emp.mobile_number, "status": emp.status,
+            "assigned_office_id": emp.assigned_office_id,
+            "assigned_office_name": office.name if office else None,
+            "assigned_counter_id": emp.assigned_counter_id,
+            "assigned_counter_name": counter.counter_name if counter else None,
+        })
+    return res
+
+@router.put("/employees/{employee_id}")
+def update_admin_employee(employee_id: int, data: EmployeeUpdate, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_active_user)):
+    if current_user.role != "admin": raise HTTPException(status_code=403, detail="Admin only")
+    emp = db.query(User).filter(User.id == employee_id, User.role == "employee").first()
+    if not emp: raise HTTPException(status_code=404, detail="Employee not found")
+    update_data = data.dict(exclude_unset=True)
+    for k, v in update_data.items():
+        setattr(emp, k, v)
+    db.commit()
+    db.refresh(emp)
+    return {"success": True, "message": "Employee updated successfully."}
+
+@router.delete("/employees/{employee_id}")
+def delete_admin_employee(employee_id: int, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_active_user)):
+    if current_user.role != "admin": raise HTTPException(status_code=403, detail="Admin only")
+    emp = db.query(User).filter(User.id == employee_id, User.role == "employee").first()
+    if not emp: raise HTTPException(status_code=404, detail="Employee not found")
+    db.delete(emp)
+    db.commit()
+    return {"success": True, "message": "Employee deleted successfully."}
+
+# ── TOKENS ────────────────────────────────────────────────────────────────────
 @router.get("/tokens")
 def get_admin_tokens(db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_active_user)):
     if current_user.role != "admin": raise HTTPException(status_code=403, detail="Admin only")
     from app.services.queue_manager import QueueManager
     from app.schemas.prediction import WaitTimeRequest
     from app.services.prediction_engine import PredictionEngine
-    
     tokens = db.query(Token).order_by(Token.created_at.desc()).limit(200).all()
     res = []
     for t in tokens:
@@ -257,16 +371,28 @@ def get_admin_tokens(db: Session = Depends(deps.get_db), current_user: User = De
         pos = None
         est = None
         if t.status in ["WAITING", "CALLED"]:
-            stats = QueueManager.get_queue_stats(db, t.office_id, t.service_id, t.id)
-            pos = stats["queue_position"]
-            req = WaitTimeRequest(office_id=t.office_id, service_id=t.service_id, token_id=t.id, people_ahead=stats["people_ahead"])
-            pred = PredictionEngine.get_wait_time(db, req)
-            est = pred["predicted_wait_minutes"]
-
+            try:
+                stats = QueueManager.get_queue_stats(db, t.office_id, t.service_id, t.id)
+                pos = stats["queue_position"]
+                req = WaitTimeRequest(office_id=t.office_id, service_id=t.service_id, token_id=t.id, people_ahead=stats["people_ahead"])
+                pred = PredictionEngine.get_wait_time(db, req)
+                est = pred["predicted_wait_minutes"]
+            except Exception:
+                pass
         res.append({
-            "id": t.id, "token_number": t.token_number, "status": t.status, "created_at": t.created_at,
-            "office_name": o.name if o else "Unknown", "service_name": s.name if s else "Unknown",
-            "position": pos,
-            "estimated_wait": est
+            "id": t.id, "token_number": t.token_number, "status": t.status,
+            "created_at": t.created_at,
+            "office_name": o.name if o else "Unknown",
+            "service_name": s.name if s else "Unknown",
+            "position": pos, "estimated_wait": est
         })
     return res
+
+@router.delete("/tokens/{token_id}")
+def delete_admin_token(token_id: int, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_active_user)):
+    if current_user.role != "admin": raise HTTPException(status_code=403, detail="Admin only")
+    token = db.query(Token).filter(Token.id == token_id).first()
+    if not token: raise HTTPException(status_code=404, detail="Token not found")
+    token.status = "CANCELLED"
+    db.commit()
+    return {"success": True, "message": f"Token {token.token_number} cancelled."}

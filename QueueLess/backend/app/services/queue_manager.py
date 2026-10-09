@@ -9,10 +9,17 @@ from app.services.notification_service import NotificationService
 
 class QueueManager:
     @staticmethod
-    def _generate_token_number(service_id: int, office_id: int) -> str:
-        # Simple unique generator using prefix + short uuid part
-        short_uuid = str(uuid.uuid4()).upper()[:6]
-        return f"TK-O{office_id}-S{service_id}-{short_uuid}"
+    def _generate_token_number(db: Session, service_id: int, office_id: int) -> str:
+        from app.models.models import Service, Token, Office
+        service = db.query(Service).filter(Service.id == service_id).first()
+        svc_code = service.code.upper() if service else "TK"
+        
+        office = db.query(Office).filter(Office.id == office_id).first()
+        city_prefix = office.city[:3].upper() if office and office.city else f"O{office_id}"
+        
+        # Count existing tokens for this specific queue to assign next available sequence
+        count = db.query(Token).filter(Token.office_id == office_id, Token.service_id == service_id).count()
+        return f"{city_prefix}-{svc_code}{(count + 1):03d}"
 
     @staticmethod
     def get_queue_stats(db: Session, office_id: int, service_id: int, current_token_id: int = None) -> dict:
@@ -70,7 +77,7 @@ class QueueManager:
 
         try:
             # 3. Create Token
-            new_token_number = QueueManager._generate_token_number(token_in.service_id, token_in.office_id)
+            new_token_number = QueueManager._generate_token_number(db, token_in.service_id, token_in.office_id)
             new_token = Token(
                 token_number=new_token_number,
                 office_id=token_in.office_id,
@@ -97,7 +104,7 @@ class QueueManager:
             return new_token
         except Exception as e:
             db.rollback()
-            raise HTTPException(status_code=500, detail="Transaction failed while creating ticket.")
+            raise HTTPException(status_code=500, detail=f"Transaction failed: {str(e)}")
 
     @staticmethod
     def cancel_token(db: Session, token_id: int, user_id: int) -> Token:

@@ -23,11 +23,22 @@ class ConnectionManager:
             if not self.active_connections[key]:
                 del self.active_connections[key]
 
+    async def blast_admin_update(self):
+        key = (0, 0)
+        if key not in self.active_connections: return
+        for client in self.active_connections[key]:
+            try:
+                await client["ws"].send_json({"type": "ADMIN_UPDATE"})
+            except Exception as e:
+                logging.warning(f"Failed dispatching admin update: {e}")
+
     async def broadcast_queue_state(self, office_id: int, service_id: int):
         """
         Dynamically rebuilds state and blasts calculations down to targeted sockets asynchronously.
         Uses inline db session generator to prevent threading corruptions.
         """
+        await self.blast_admin_update()
+        
         key = (office_id, service_id)
         if key not in self.active_connections:
             return  # Nobody listening

@@ -38,6 +38,8 @@ const Profile = () => {
             return;
         }
         fetchData();
+        const inv = setInterval(fetchData, 10000);
+        return () => clearInterval(inv);
     }, [user, navigate]);
 
     const fetchData = async () => {
@@ -141,8 +143,49 @@ const Profile = () => {
         </div>
     );
 
-    const activeTokens = tokens.filter(t => ['waiting', 'pending', 'called'].includes(t.status.toLowerCase())).length;
-    const completedTokens = tokens.filter(t => t.status.toLowerCase() === 'completed').length;
+    // Status grouping organically
+    const pendingTokens = tokens.filter(t => ['waiting', 'called'].includes(t.status.toLowerCase()));
+    const inProgressTokens = tokens.filter(t => t.status.toLowerCase() === 'serving');
+    const completedTokensList = tokens.filter(t => t.status.toLowerCase() === 'completed');
+
+    const activeTokenStr = inProgressTokens.length > 0 
+        ? inProgressTokens[0].token_number 
+        : (pendingTokens.length > 0 ? pendingTokens[0].token_number : '--');
+
+    let totalWaitMins = 0;
+    let waitCount = 0;
+    completedTokensList.forEach(tk => {
+        if (tk.started_at && tk.created_at) {
+            const startStr = tk.started_at + (!tk.started_at.endsWith('Z') ? 'Z' : '');
+            const createStr = tk.created_at + (!tk.created_at.endsWith('Z') ? 'Z' : '');
+            const start = new Date(startStr);
+            const created = new Date(createStr);
+            if (!isNaN(start) && !isNaN(created) && start >= created) {
+                totalWaitMins += (start - created) / 60000;
+                waitCount++;
+            }
+        }
+    });
+    const avgWaitStr = waitCount > 0 ? `${Math.round(totalWaitMins / waitCount)} min` : '--';
+
+    const getServiceTimeDisplay = (tk) => {
+        if (!tk.started_at) return '-';
+        const startStr = tk.started_at + (!tk.started_at.endsWith('Z') ? 'Z' : '');
+        const start = new Date(startStr);
+        if (isNaN(start)) return '-';
+
+        if (tk.status.toLowerCase() === 'completed' && tk.completed_at) {
+            const endStr = tk.completed_at + (!tk.completed_at.endsWith('Z') ? 'Z' : '');
+            const end = new Date(endStr);
+            const m = Math.floor((end - start) / 60000);
+            return m < 1 ? '<1 min' : `${m} min`;
+        } else if (tk.status.toLowerCase() === 'serving') {
+            const end = new Date();
+            const m = Math.floor((end - start) / 60000);
+            return m < 1 ? 'Just started' : `${m} min (Active)`;
+        }
+        return '-';
+    };
     
     // Status Badge Color Map
     const getBadgeStyle = (status) => {
@@ -314,15 +357,23 @@ const Profile = () => {
                             
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '20px' }}>
                                 <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '12px', textAlign: 'center', border: '1px solid var(--border-color)' }}>
-                                    <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--primary-color)' }}>{activeTokens}</div>
-                                    <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Active Tokens</div>
+                                    <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-secondary)' }}>{pendingTokens.length}</div>
+                                    <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Pending</div>
                                 </div>
                                 <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '12px', textAlign: 'center', border: '1px solid var(--border-color)' }}>
-                                    <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--success-color)' }}>{completedTokens}</div>
+                                    <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--primary-color)' }}>{inProgressTokens.length}</div>
+                                    <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>In Progress / Active</div>
+                                </div>
+                                <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '12px', textAlign: 'center', border: '1px solid var(--border-color)' }}>
+                                    <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--success-color)' }}>{completedTokensList.length}</div>
                                     <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Completed</div>
                                 </div>
                                 <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '12px', textAlign: 'center', border: '1px solid var(--border-color)' }}>
-                                    <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent-color)' }}>{'--'}</div>
+                                    <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--warning-color)' }}>{activeTokenStr}</div>
+                                    <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Current Token</div>
+                                </div>
+                                <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '12px', textAlign: 'center', border: '1px solid var(--border-color)' }}>
+                                    <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent-color)' }}>{avgWaitStr}</div>
                                     <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Avg Wait Time</div>
                                 </div>
                             </div>
@@ -344,7 +395,7 @@ const Profile = () => {
                                             <tr style={{ background: '#f8fafc', color: 'var(--text-secondary)', textAlign: 'left', fontSize: '0.9rem' }}>
                                                 <th style={{ padding: '12px 15px', borderRadius: '8px 0 0 8px' }}>Token Number</th>
                                                 <th style={{ padding: '12px 15px' }}>Office</th>
-                                                <th style={{ padding: '12px 15px' }}>Date</th>
+                                                <th style={{ padding: '12px 15px' }}>Service Time</th>
                                                 <th style={{ padding: '12px 15px', borderRadius: '0 8px 8px 0' }}>Status</th>
                                             </tr>
                                         </thead>
@@ -356,7 +407,7 @@ const Profile = () => {
                                                     <tr key={tk.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                                                         <td style={{ padding: '16px 15px', fontWeight: 700, color: 'var(--primary-color)' }}>{tk.token_number}</td>
                                                         <td style={{ padding: '16px 15px', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>{off ? off.name : `Office #${tk.office_id}`}</td>
-                                                        <td style={{ padding: '16px 15px', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>{new Date(tk.created_at + 'Z').toLocaleDateString()}</td>
+                                                        <td style={{ padding: '16px 15px', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>{getServiceTimeDisplay(tk)}</td>
                                                         <td style={{ padding: '16px 15px' }}>
                                                             <span style={{ 
                                                                 background: syle.bg, color: syle.color, 

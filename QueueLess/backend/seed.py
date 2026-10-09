@@ -9,61 +9,84 @@ from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def get_or_create(db, model, defaults=None, **kwargs):
-    """
-    Safely retrieves an existing record by unique criteria or creates it if it doesn't exist.
-    Prevents duplicate entries and safeguards existing user data.
-    """
-    instance = db.query(model).filter_by(**kwargs).first()
-    if instance:
-        return instance, False
-    else:
-        params = dict((k, v) for k, v in kwargs.items())
-        params.update(defaults or {})
-        instance = model(**params)
-        db.add(instance)
-        db.commit()
-        db.refresh(instance)
-        return instance, True
-
 def seed():
-    print("=== QueueLess Safe Reproducible Sandbox Seeder ===")
+    print("=== QueueLess Structured Role-based Seeder ===")
     
+    # 1. Start fresh - Wiping db securely in development
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     
-    # 1. Accounts (Safely verifying existence before inserting)
-    default_pass = pwd_context.hash("demo1234")
-    cit, _ = get_or_create(db, User, defaults={"name": "Demo Citizen", "password_hash": default_pass, "role": "citizen"}, email="citizen@demo.com")
-    emp, _ = get_or_create(db, User, defaults={"name": "Demo Employee", "password_hash": default_pass, "role": "employee"}, email="employee@demo.com")
-    admin, _ = get_or_create(db, User, defaults={"name": "Demo Admin", "password_hash": default_pass, "role": "admin"}, email="admin@demo.com")
+    default_pass = pwd_context.hash("123")
+    
+    # 2. Administrative Accounts
+    db.add(User(name="System Administrator", password_hash=default_pass, role="admin", email="admin@gmail.com"))
+    db.add(User(name="Demo Citizen", password_hash=default_pass, role="citizen", email="user@gmail.com"))
+    db.flush()
 
-    # 2. Offices
-    rajkot, _ = get_or_create(db, Office, defaults={"city": "Rajkot", "address": "RTO East"}, name="Rajkot RTO")
-    ahmedabad, _ = get_or_create(db, Office, defaults={"city": "Ahmedabad", "address": "Subhash Bridge"}, name="Ahmedabad RTO")
-    surat, _ = get_or_create(db, Office, defaults={"city": "Surat", "address": "Majura Gate"}, name="Surat RTO")
-    offices = [rajkot, ahmedabad, surat]
-
-    # 3. Services
-    ll_service, _ = get_or_create(db, Service, defaults={"name": "Learner's Licence", "baseline_service_minutes": 25}, code="LL_T")
-    dl_service, _ = get_or_create(db, Service, defaults={"name": "Driving Licence Renewal", "baseline_service_minutes": 15}, code="DL_REN")
-    veh_service, _ = get_or_create(db, Service, defaults={"name": "New Vehicle Registration", "baseline_service_minutes": 45}, code="NVM_R")
-    services = [ll_service, dl_service, veh_service]
-
-    # 4. Safely map all 9 combinations and create realistic counters
-    for off in offices:
-        for srv in services:
-            get_or_create(db, OfficeService, office_id=off.id, service_id=srv.id)
+    # 3. Exactly 3 RTO Offices
+    offices_data = [
+        {"name": "Ahmedabad RTO", "city": "Ahmedabad", "code": "amd"},
+        {"name": "Rajkot RTO", "city": "Rajkot", "code": "rjk"},
+        {"name": "Surat RTO", "city": "Surat", "code": "srt"}
+    ]
+    
+    offices_dict = {}
+    for o in offices_data:
+        office = Office(name=o["name"], city=o["city"])
+        db.add(office)
+        db.flush()
+        offices_dict[o["code"]] = office
+        
+    # 4. Exactly 3 Services
+    services_data = [
+        {"name": "Learner's Licence", "code": "ll", "time": 15},
+        {"name": "Driving Licence Renewal", "code": "dlr", "time": 10},
+        {"name": "New Vehicle Registration", "code": "nvr", "time": 30}
+    ]
+    
+    services_dict = {}
+    for s in services_data:
+        service = Service(name=s["name"], code=s["code"], baseline_service_minutes=s["time"])
+        db.add(service)
+        db.flush()
+        services_dict[s["code"]] = service
+        
+    # 5. Exactly 9 Combinations / Employee Mapping
+    for city_code, office in offices_dict.items():
+        for svc_code, service in services_dict.items():
             
-            counter_name = f"Desk - {srv.code} Processing"
-            counter, _ = get_or_create(db, Counter, defaults={"status": "active"}, office_id=off.id, counter_name=counter_name)
+            # Map Service to Office globally
+            db.add(OfficeService(office_id=office.id, service_id=service.id))
+            db.flush()
             
-            get_or_create(db, CounterService, counter_id=counter.id, service_id=srv.id)
+            # Create the 1 Counter per scope specifically bound
+            # e.g., Ahmedabad RTO - Learner's Licence Counter
+            counter_name = f"{office.city} - {service.name} Desk"
+            counter = Counter(office_id=office.id, counter_name=counter_name, status="active")
+            db.add(counter)
+            db.flush()
+            
+            db.add(CounterService(counter_id=counter.id, service_id=service.id))
+            db.flush()
+            
+            # Create Employee Account bound exactly to that Counter scope ONLY.
+            # e.g., amdll / amdll@gmail.com
+            emp_id_code = f"{city_code}{svc_code}" 
+            emp_email = f"{emp_id_code}@gmail.com"
+            
+            emp = User(
+                name=f"Emp {emp_id_code.upper()}",
+                email=emp_email,
+                password_hash=default_pass,
+                role="employee",
+                assigned_office_id=office.id,
+                assigned_counter_id=counter.id
+            )
+            db.add(emp)
 
     db.commit()
-    print("Success: Safe Sandbox Seed Completed!")
-    print("Database relationships generated: 9 Office-Service Combos created mapping to 9 specific realistic processing counters.")
-    print("Demo Accounts (Password: demo1234) -> citizen@demo.com | employee@demo.com | admin@demo.com")
+    print("Success: 9 Employees firmly mapped to 9 independent isolated Queue queues!")
     db.close()
 
 if __name__ == "__main__":

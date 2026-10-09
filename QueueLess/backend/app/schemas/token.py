@@ -24,5 +24,7 @@ class TokenResponse(BaseModel):
     people_ahead: Optional[int] = None
     queue_position: Optional[int] = None
     current_queue_length: Optional[int] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)

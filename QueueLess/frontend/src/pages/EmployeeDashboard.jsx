@@ -1,395 +1,381 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { 
-  Users, Activity, CheckCircle, SkipForward,
-  Play, Pause, RefreshCw, XCircle, UserPlus, HeartPulse 
+import {
+  CheckCircle, SkipForward, Play,
+  XCircle, UserPlus, LogOut, Monitor
 } from 'lucide-react';
 
 const EmployeeDashboard = () => {
-  const { user } = useAuth();
-  const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
-  // Employee Context Stats
-  const [assignedInfo, setAssignedInfo] = useState(null);
+  // ── Assignment state ──────────────────────────────────────────
+  const [assignedInfo, setAssignedInfo]     = useState(null);
   const [needsAssignment, setNeedsAssignment] = useState(false);
-  const [offices, setOffices] = useState([]);
-  const [counters, setCounters] = useState([]);
+  const [offices, setOffices]               = useState([]);
+  const [counters, setCounters]             = useState([]);
   const [selectedOffice, setSelectedOffice] = useState('');
   const [selectedCounter, setSelectedCounter] = useState('');
-  const [assignmentLoading, setAssignmentLoading] = useState(false);
-  
-  const [queueHealth, setQueueHealth] = useState("Excellent");
-  const [activeCounterStatus, setActiveCounterStatus] = useState("loading");
+  const [assignLoading, setAssignLoading]   = useState(false);
 
-  // Core Metrics
-  const [metrics, setMetrics] = useState({
-    waiting: 0,
-    completed: 0,
-    skipped: 0,
-    active_counters: 1,
-    active_counters: 1,
-    avg_duration: 15
-  });
-  const [waitingTokens, setWaitingTokens] = useState([]);
+  // ── Stats (always from DB) ─────────────────────────────────────
+  const [metrics, setMetrics] = useState({ completed: 0, no_show: 0, skipped: 0 });
 
-  // Current Handling State
-  const [servingToken, setServingToken] = useState(null);
+  // ── Active / serving token ─────────────────────────────────────
+  const [servingToken, setServingToken] = useState(null); // null = no active token
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Poll for UI updates (usually this is tied to the WebSocket, but we can poll for dashboard sync uniquely)
-  const syncDashboard = async () => {
-    try {
-      if (!assignedInfo) return;
-      
-      const oId = assignedInfo.assigned_office_id;
-      const sId = assignedInfo.assigned_service_id;
-      
-      // Query Real Live Analytics Endpoint securely
-      const res = await api.get('/employee/dashboard', {
-        params: {
-          office_id: oId,
-          service_id: sId,
-          counter_id: assignedInfo.assigned_counter_id
-        }
-      });
-      
-      const data = res.data;
-      
-      setMetrics({
-        waiting: data.waiting_tokens.length,
-        completed: data.completed_tokens.length,
-        skipped: data.skipped_tokens.length,
-        no_show: data.no_show_tokens.length,
-        active_counters: activeCounterStatus === "active" ? 1 : 0, 
-        avg_duration: 15
-      });
-      setWaitingTokens(data.waiting_tokens || []);
-      
-      if (data.current_token) {
-         setServingToken(data.current_token);
-      }
-      
-    } catch (e) {
-      console.error(e);
-    }
+  // ── Elapsed timer ──────────────────────────────────────────────
+  const [elapsedSecs, setElapsedSecs] = useState(0);
+  const timerRef = useRef(null);
+
+  const startTimer = (startIso) => {
+    clearInterval(timerRef.current);
+    const startMs = new Date(startIso).getTime();
+    timerRef.current = setInterval(() => {
+      setElapsedSecs(Math.max(0, Math.floor((Date.now() - startMs) / 1000)));
+    }, 1000);
   };
 
-  useEffect(() => {
-    // 1. Fetch authorized assignment natively
-    api.get('/employee/assigned-info').then(res => {
-      if (res.data) {
-        setAssignedInfo(res.data);
-        setActiveCounterStatus("active");
+  const stopTimer = () => {
+    clearInterval(timerRef.current);
+    setElapsedSecs(0);
+  };
+
+  useEffect(() => () => clearInterval(timerRef.current), []);
+
+  const fmtElapsed = (s) => `${Math.floor(s / 60)}m ${s % 60}s`;
+
+  // ── assignedInfoRef so syncDashboard always has latest ─────────
+  const assignedInfoRef = useRef(null);
+  useEffect(() => { assignedInfoRef.current = assignedInfo; }, [assignedInfo]);
+
+  // ── Sync dashboard from backend ────────────────────────────────
+  const syncDashboard = useCallback(async () => {
+    const ai = assignedInfoRef.current;
+    if (!ai) return;
+    try {
+      const res = await api.get('/employee/dashboard', {
+        params: {
+          office_id:  ai.assigned_office_id,
+          counter_id: ai.assigned_counter_id,
+        },
+      });
+      const data = res.data;
+
+      // Stats come directly as integer counts from DB — employee-specific, today-only
+      setMetrics({
+        completed: data.completed_count ?? 0,
+        no_show:   data.no_show_count   ?? 0,
+        skipped:   data.skipped_count   ?? 0,
+      });
+
+      // Sync active token from server (source of truth)
+      if (data.current_token) {
+        setServingToken(prev => {
+          // If it's the same token already running, don't restart timer
+          if (prev && prev.id === data.current_token.id) return prev;
+          if (data.current_token.start_time) startTimer(data.current_token.start_time);
+          return data.current_token;
+        });
       } else {
-        setNeedsAssignment(true);
-        api.get('/offices').then(oRes => setOffices(oRes.data));
+        // No active token on server → clear local state
+        setServingToken(prev => { if (prev) stopTimer(); return null; });
       }
-    }).catch(e => {
-      console.error("Assignment Error:", e);
-    });
+    } catch (e) {
+      console.error('Dashboard sync error:', e);
+    }
   }, []);
 
+  // ── On mount: load assignment ──────────────────────────────────
+  useEffect(() => {
+    api.get('/employee/assigned-info')
+      .then(res => {
+        if (res.data) {
+          setAssignedInfo(res.data);
+        } else {
+          setNeedsAssignment(true);
+          api.get('/offices').then(r => setOffices(r.data));
+        }
+      })
+      .catch(e => console.error('Assignment check failed:', e));
+  }, []);
+
+  // ── Polling: every 8 seconds once assigned ─────────────────────
+  useEffect(() => {
+    if (!assignedInfo) return;
+    syncDashboard();
+    const inv = setInterval(syncDashboard, 8000);
+    return () => clearInterval(inv);
+  }, [assignedInfo, syncDashboard]);
+
+  // ── Load counters when office selected ────────────────────────
   useEffect(() => {
     if (needsAssignment && selectedOffice) {
-        api.get(`/offices/${selectedOffice}/counters`).then(res => setCounters(res.data));
+      api.get(`/offices/${selectedOffice}/counters`).then(r => setCounters(r.data));
     } else {
-        setCounters([]);
+      setCounters([]);
     }
   }, [selectedOffice, needsAssignment]);
 
   const confirmAssignment = async () => {
-     if (!selectedOffice || !selectedCounter) return;
-     setAssignmentLoading(true);
-     try {
-       await api.post('/employee/assign', {
-          office_id: parseInt(selectedOffice),
-          counter_id: parseInt(selectedCounter)
-       });
-       // Re-fetch info
-       const res = await api.get('/employee/assigned-info');
-       setAssignedInfo(res.data);
-       setActiveCounterStatus("active");
-       setNeedsAssignment(false);
-     } catch (e) {
-       alert("Failed to confirm assignment.");
-     } finally {
-       setAssignmentLoading(false);
-     }
+    if (!selectedOffice || !selectedCounter) return;
+    setAssignLoading(true);
+    try {
+      await api.post('/employee/assign', {
+        office_id:  parseInt(selectedOffice),
+        counter_id: parseInt(selectedCounter),
+      });
+      const res = await api.get('/employee/assigned-info');
+      setAssignedInfo(res.data);
+      setNeedsAssignment(false);
+    } catch {
+      alert('Failed to confirm assignment. Contact administrator.');
+    } finally {
+      setAssignLoading(false);
+    }
   };
 
-  useEffect(() => {
-    // Sync loop
-    if (assignedInfo) syncDashboard();
-    const inv = setInterval(syncDashboard, 15000);
-    return () => clearInterval(inv);
-  }, [assignedInfo, activeCounterStatus]);
-  
-  // Handlers
+  // ── CALL NEXT TOKEN ────────────────────────────────────────────
   const handleCallNext = async () => {
     setActionLoading(true);
     try {
-      const res = await api.post('/employee/call-next', {
-        office_id: assignedInfo.assigned_office_id,
-        service_id: assignedInfo.assigned_service_id
+      // 1. Pull next token from queue → status = CALLED
+      const callRes = await api.post('/employee/call-next', {
+        office_id:  assignedInfo.assigned_office_id,
+        service_id: assignedInfo.assigned_service_id,
       });
-      setServingToken(res.data);
-      setQueueHealth("Stable");
-      syncDashboard();
+      const token = callRes.data;
+
+      // 2. Immediately mark as SERVING (In Progress)
+      await api.post(`/employee/tokens/${token.id}/start`, {
+        status:     'SERVING',
+        counter_id: assignedInfo.assigned_counter_id,
+      });
+
+      const startTime = new Date().toISOString();
+      setServingToken({
+        id:          token.id,
+        number:      token.token_number || token.number,
+        status:      'SERVING',
+        client_name: token.client_name || null,
+        start_time:  startTime,
+      });
+      startTimer(startTime);
+
+      // Refresh stats (does NOT count In Progress as Completed)
+      await syncDashboard();
     } catch (err) {
-      alert(err.response?.data?.detail || "No tokens waiting.");
+      alert(err.response?.data?.detail || 'No tokens are currently waiting.');
     } finally {
       setActionLoading(false);
     }
   };
 
-  const updateStatus = async (status) => {
+  // ── COMPLETE / SKIP / NO-SHOW ──────────────────────────────────
+  const handleAction = async (status) => {
     if (!servingToken) return;
     setActionLoading(true);
+    const endpointMap = {
+      COMPLETED: 'complete',
+      SKIPPED:   'skip',
+      NO_SHOW:   'no-show',
+    };
     try {
-      let endpoint = '';
-      if (status === 'SERVING') endpoint = 'start';
-      else if (status === 'COMPLETED') endpoint = 'complete';
-      else if (status === 'SKIPPED') endpoint = 'skip';
-      else if (status === 'NO_SHOW') endpoint = 'no-show';
-
-      await api.post(`/employee/tokens/${servingToken.id}/${endpoint}`, {
-        status: status,
-        counter_id: assignedInfo.assigned_counter_id
+      await api.post(`/employee/tokens/${servingToken.id}/${endpointMap[status]}`, {
+        status,
+        counter_id: assignedInfo.assigned_counter_id,
       });
-      if (status === 'COMPLETED' || status === 'SKIPPED' || status === 'NO_SHOW') {
-         setServingToken(null);
-      } else {
-         setServingToken({...servingToken, status});
-      }
-      syncDashboard();
+      // Clear active token immediately — don't wait for poll
+      stopTimer();
+      setServingToken(null);
+      // Refresh stats from DB so counts update right away
+      await syncDashboard();
     } catch (e) {
-      console.error(e);
+      console.error('Action error:', e);
     } finally {
       setActionLoading(false);
     }
   };
 
-  const toggleCounter = async () => {
-    try {
-      const target = activeCounterStatus === "active" ? "paused" : "active";
-      await api.post(`/employee/counters/${assignedInfo.assigned_counter_id}/status?status=${target}`);
-      setActiveCounterStatus(target);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
+  // ── NEEDS ASSIGNMENT screen ────────────────────────────────────
   if (needsAssignment) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-secondary)' }}>
-         <div style={{ background: 'var(--primary-color)', color: 'white', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 style={{ fontSize: '1.2rem', fontWeight: 600 }}>TokenGo Employee Console</h2>
-            <span>Officer: <strong>{user?.name}</strong></span>
-         </div>
-         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-            <div className="card animate-fade-in" style={{ width: '100%', maxWidth: '500px', padding: '40px' }}>
-               <h2 style={{ fontSize: '1.5rem', marginBottom: '10px', color: 'var(--primary-color)' }}>Select Workstation</h2>
-               <p style={{ color: 'var(--text-secondary)', marginBottom: '30px' }}>Please assign yourself to a specific physical counter to begin processing the queue organically.</p>
-               
-               <div style={{ marginBottom: '20px' }}>
-                  <label className="label">1. RTO Office</label>
-                  <select className="select-field" value={selectedOffice} onChange={e => { setSelectedOffice(e.target.value); setSelectedCounter(''); }}>
-                     <option value="">-- Select Office --</option>
-                     {offices.map(o => <option key={o.id} value={o.id}>{o.name} ({o.city})</option>)}
-                  </select>
-               </div>
-               
-               <div style={{ marginBottom: '30px' }}>
-                  <label className="label">2. Counter Terminal</label>
-                  <select className="select-field" value={selectedCounter} onChange={e => setSelectedCounter(e.target.value)} disabled={!selectedOffice}>
-                     <option value="">-- Select Counter --</option>
-                     {counters.map(c => <option key={c.id} value={c.id}>{c.counter_name}</option>)}
-                  </select>
-               </div>
-               
-               <button className="btn-primary" style={{ width: '100%' }} onClick={confirmAssignment} disabled={!selectedCounter || assignmentLoading}>
-                  {assignmentLoading ? "Securing Assignment..." : "Confirm Counter & Login"}
-               </button>
+        <div style={{ background: 'var(--primary-color)', color: 'white', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}><Monitor size={20} /> LIVE COUNTER</h2>
+          <button className="btn-outline" style={{ color: 'white', borderColor: 'rgba(255,255,255,0.4)', padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={logout}>
+            <LogOut size={16} /> SIGN OUT
+          </button>
+        </div>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div className="card animate-fade-in" style={{ width: '100%', maxWidth: '480px', padding: '40px' }}>
+            <h2 style={{ fontSize: '1.5rem', marginBottom: '8px', color: 'var(--primary-color)' }}>Select Workstation</h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '28px' }}>Your administrator has assigned you a locked counter. Please confirm your workstation below.</p>
+
+            <div style={{ marginBottom: '18px' }}>
+              <label className="label">RTO Office</label>
+              <select className="select-field" value={selectedOffice} onChange={e => { setSelectedOffice(e.target.value); setSelectedCounter(''); }}>
+                <option value="">-- Select Office --</option>
+                {offices.map(o => <option key={o.id} value={o.id}>{o.name} ({o.city})</option>)}
+              </select>
             </div>
-         </div>
+
+            <div style={{ marginBottom: '28px' }}>
+              <label className="label">Counter Terminal</label>
+              <select className="select-field" value={selectedCounter} onChange={e => setSelectedCounter(e.target.value)} disabled={!selectedOffice}>
+                <option value="">-- Select Counter --</option>
+                {counters.map(c => <option key={c.id} value={c.id}>{c.counter_name}</option>)}
+              </select>
+            </div>
+
+            <button className="btn-primary" style={{ width: '100%' }} onClick={confirmAssignment} disabled={!selectedCounter || assignLoading}>
+              {assignLoading ? 'Securing...' : 'Confirm Counter & Login'}
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
-  if (!assignedInfo) return <div style={{ padding: '60px', textAlign: 'center' }}>Validating Employee Credentials...</div>;
+  if (!assignedInfo) {
+    return <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-secondary)' }}>Validating credentials...</div>;
+  }
 
+  // ── MAIN DASHBOARD ─────────────────────────────────────────────
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-secondary)', paddingBottom: '40px' }}>
-      
-      {/* Top Bar */}
+    <div style={{ minHeight: '100vh', background: 'var(--bg-secondary)', paddingBottom: '60px' }}>
+
+      {/* ── Header ── */}
       <div style={{ background: 'var(--primary-color)', color: 'white', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ fontSize: '1.2rem', fontWeight: 600 }}>TokenGo Employee Console</h2>
-        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <span>Officer: <strong>{user?.name}</strong></span>
-          <button className="btn-outline" style={{ color: 'white', borderColor: 'rgba(255,255,255,0.4)', padding: '6px 12px' }} onClick={() => navigate('/')}>Exit Console</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+            <Monitor size={20} /> LIVE COUNTER
+          </h2>
+          <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>
+            {assignedInfo.counter_name} &nbsp;·&nbsp; {assignedInfo.office_name}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <span style={{ fontSize: '0.9rem', opacity: 0.8 }}>
+            Officer: <strong>{user?.name}</strong>
+          </span>
+          <button
+            className="btn-outline"
+            style={{ color: 'white', borderColor: 'rgba(255,255,255,0.4)', padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            onClick={logout}
+          >
+            <LogOut size={16} /> SIGN OUT
+          </button>
         </div>
       </div>
 
-      <div className="container" style={{ marginTop: '30px' }}>
-        
-        {/* Quick Assignment Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <div>
-            <h1 style={{ fontSize: '1.8rem', color: 'var(--text-primary)', fontWeight: 700 }}>{assignedInfo.counter_name} Dashboard</h1>
-            <p style={{ color: 'var(--text-secondary)' }}>Operating collaboratively at {assignedInfo.office_name}</p>
-          </div>
-          <div style={{ display: 'flex', gap: '15px' }}>
-            <div style={{ padding: '10px 16px', background: activeCounterStatus === 'active' ? 'rgba(22, 163, 74, 0.1)' : 'rgba(245, 158, 11, 0.1)', color: activeCounterStatus === 'active' ? 'var(--success-color)' : 'var(--warning-color)', borderRadius: '6px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Activity size={18} /> Counter is {activeCounterStatus.toUpperCase()}
+      <div className="container" style={{ marginTop: '30px', maxWidth: '900px' }}>
+
+        {/* ── 3 Live Stat Cards ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
+          <div className="card" style={{ textAlign: 'center', padding: '24px 20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', color: 'var(--success-color)', fontWeight: 700, fontSize: '0.85rem', marginBottom: '10px' }}>
+              <CheckCircle size={18} /> COMPLETED TODAY
             </div>
-            <button 
-               className={activeCounterStatus === 'active' ? 'btn-outline' : 'btn-primary'} 
-               onClick={toggleCounter}
-            >
-              {activeCounterStatus === 'active' ? <><Pause size={18} /> PAUSE COUNTER</> : <><Play size={18} /> RESUME COUNTER</>}
-            </button>
+            <div style={{ fontSize: '3rem', fontWeight: 900, color: 'var(--success-color)', lineHeight: 1 }}>{metrics.completed}</div>
+          </div>
+
+          <div className="card" style={{ textAlign: 'center', padding: '24px 20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', color: 'var(--danger-color)', fontWeight: 700, fontSize: '0.85rem', marginBottom: '10px' }}>
+              <XCircle size={18} /> NO-SHOWS
+            </div>
+            <div style={{ fontSize: '3rem', fontWeight: 900, color: 'var(--danger-color)', lineHeight: 1 }}>{metrics.no_show}</div>
+          </div>
+
+          <div className="card" style={{ textAlign: 'center', padding: '24px 20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', color: 'var(--warning-color)', fontWeight: 700, fontSize: '0.85rem', marginBottom: '10px' }}>
+              <SkipForward size={18} /> SKIPPED
+            </div>
+            <div style={{ fontSize: '3rem', fontWeight: 900, color: 'var(--warning-color)', lineHeight: 1 }}>{metrics.skipped}</div>
           </div>
         </div>
 
-        {/* Global Analytics Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '20px', marginBottom: '30px' }}>
-           <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-             <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600 }}><Users size={16} /> WAIT POOL</span>
-             <span style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--primary-color)' }}>{metrics.waiting}</span>
-           </div>
-           <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-             <span style={{ color: 'var(--success-color)', fontSize: '0.9rem', fontWeight: 600 }}><CheckCircle size={16} /> COMPLETED TODAY</span>
-             <span style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)' }}>{metrics.completed}</span>
-           </div>
-           <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-             <span style={{ color: 'var(--danger-color)', fontSize: '0.9rem', fontWeight: 600 }}><XCircle size={16} /> NO-SHOWS</span>
-             <span style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)' }}>{metrics.no_show}</span>
-           </div>
-           <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-             <span style={{ color: 'var(--warning-color)', fontSize: '0.9rem', fontWeight: 600 }}><SkipForward size={16} /> SKIPPED</span>
-             <span style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--text-primary)' }}>{metrics.skipped}</span>
-           </div>
-           <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-             <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 600 }}><HeartPulse size={16} /> QUEUE HEALTH</span>
-             <span style={{ fontSize: '1.4rem', fontWeight: 800, color: queueHealth === 'Excellent' ? 'var(--success-color)' : 'var(--warning-color)' }}>{queueHealth}</span>
-             <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Avg Time: {metrics.avg_duration}m</span>
-           </div>
+        {/* ── Live Counter Console ── */}
+        <div className="card" style={{ borderTop: '4px solid var(--primary-color)', minHeight: '340px', display: 'flex', flexDirection: 'column', padding: '32px' }}>
+
+          {!servingToken ? (
+            /* ── NO ACTIVE TOKEN ── */
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '24px' }}>
+              <div style={{ width: '90px', height: '90px', borderRadius: '50%', background: 'rgba(12,59,122,0.07)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <UserPlus size={44} color="var(--primary-color)" />
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <h3 style={{ fontSize: '1.4rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>No Active Token</h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Click below to pull the next client from the queue.</p>
+              </div>
+              <button
+                className="btn-primary"
+                style={{ padding: '16px 48px', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '12px' }}
+                onClick={handleCallNext}
+                disabled={actionLoading}
+              >
+                <Play size={24} />
+                {actionLoading ? 'Loading...' : 'CALL NEXT TOKEN'}
+              </button>
+            </div>
+
+          ) : (
+            /* ── ACTIVE TOKEN / IN PROGRESS ── */
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+              {/* Token info */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--border-color)', paddingBottom: '20px' }}>
+                <div>
+                  <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.05em' }}>IN PROGRESS</div>
+                  <div style={{ fontSize: '4rem', fontWeight: 900, color: 'var(--primary-color)', lineHeight: 1.1 }}>{servingToken.number}</div>
+                  <div style={{ display: 'flex', gap: '20px', marginTop: '12px', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+                    <span><strong>Client:</strong> {servingToken.client_name || 'Walk-in / Guest'}</span>
+                    <span>
+                      <strong>Elapsed:</strong>{' '}
+                      <span style={{ color: 'var(--primary-color)', fontWeight: 700 }}>{fmtElapsed(elapsedSecs)}</span>
+                    </span>
+                  </div>
+                </div>
+                <span style={{
+                  background: 'rgba(59,130,246,0.12)', color: '#2563eb',
+                  padding: '6px 18px', borderRadius: '20px',
+                  fontSize: '0.85rem', fontWeight: 700, letterSpacing: '0.05em'
+                }}>
+                  SERVING
+                </span>
+              </div>
+
+              {/* Action buttons */}
+              <div style={{ display: 'flex', gap: '14px', marginTop: 'auto' }}>
+                <button
+                  className="btn-primary"
+                  style={{ flex: 2, padding: '16px', fontSize: '1.05rem', background: 'var(--success-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
+                  onClick={() => handleAction('COMPLETED')}
+                  disabled={actionLoading}
+                >
+                  <CheckCircle size={20} /> COMPLETE
+                </button>
+
+                <button
+                  style={{ flex: 1, padding: '16px', fontSize: '1rem', background: 'rgba(245,158,11,0.1)', color: 'var(--warning-color)', border: '1.5px solid var(--warning-color)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: actionLoading ? 'not-allowed' : 'pointer', opacity: actionLoading ? 0.6 : 1, fontWeight: 600 }}
+                  onClick={() => handleAction('SKIPPED')}
+                  disabled={actionLoading}
+                >
+                  <SkipForward size={18} /> SKIP
+                </button>
+
+                <button
+                  style={{ flex: 1, padding: '16px', fontSize: '1rem', background: 'rgba(239,68,68,0.1)', color: 'var(--danger-color)', border: '1.5px solid var(--danger-color)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: actionLoading ? 'not-allowed' : 'pointer', opacity: actionLoading ? 0.6 : 1, fontWeight: 600 }}
+                  onClick={() => handleAction('NO_SHOW')}
+                  disabled={actionLoading}
+                >
+                  <XCircle size={18} /> NO-SHOW
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-
-        {/* Action Controller */}
-        <div className="card" style={{ borderTop: '4px solid var(--primary-color)', minHeight: '350px', display: 'flex', flexDirection: 'column' }}>
-           
-           {!servingToken ? (
-             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px' }}>
-               <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(12,59,122,0.05)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                 <UserPlus size={40} color="var(--primary-color)" />
-               </div>
-               <h3 style={{ fontSize: '1.4rem', color: 'var(--text-secondary)' }}>No Active Token Assigned</h3>
-               
-               <button 
-                 className="btn-primary" 
-                 style={{ padding: '16px 40px', fontSize: '1.2rem', gap: '12px' }} 
-                 onClick={handleCallNext}
-                 disabled={actionLoading || activeCounterStatus !== 'active'}
-               >
-                 <Play size={24} /> 
-                 {actionLoading ? "Processing..." : "CALL NEXT TOKEN"}
-               </button>
-             </div>
-           ) : (
-             <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-               
-               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '20px', marginBottom: '20px' }}>
-                 <div>
-                   <span style={{ fontSize: '1rem', color: 'var(--text-secondary)', fontWeight: 600 }}>CURRENTLY HANDLING</span>
-                   <h2 style={{ fontSize: '3rem', fontWeight: 900, color: 'var(--primary-color)' }}>{servingToken.token_number}</h2>
-                   <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                     <span className="badge badge-warning" style={{ fontSize: '1rem', padding: '6px 16px' }}>{servingToken.status}</span>
-                   </div>
-                 </div>
-                 
-                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                    {servingToken.status === 'CALLED' && (
-                      <button className="btn-accent" style={{ padding: '16px 30px', fontSize: '1.1rem' }} onClick={() => updateStatus('SERVING')} disabled={actionLoading || activeCounterStatus !== 'active'}>
-                         <Play size={20} /> START SERVICE
-                      </button>
-                    )}
-                 </div>
-               </div>
-               
-               <div style={{ display: 'flex', gap: '20px', marginTop: 'auto' }}>
-                  <button 
-                    className="btn-primary" 
-                    style={{ flex: 2, background: 'var(--success-color)', padding: '16px', fontSize: '1.1rem' }}
-                    onClick={() => updateStatus('COMPLETED')}
-                    disabled={actionLoading}
-                  >
-                    <CheckCircle size={20} /> COMPLETE SESSION
-                  </button>
-                  
-                  <button 
-                    className="btn-secondary" 
-                    style={{ flex: 1, background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger-color)', border: '1px solid var(--danger-color)' }}
-                    onClick={() => updateStatus('NO_SHOW')}
-                    disabled={actionLoading}
-                  >
-                    <XCircle size={18} /> NO SHOW
-                  </button>
-                  
-                  <button 
-                    className="btn-secondary" 
-                    style={{ flex: 1, background: 'rgba(245, 158, 11, 0.1)', color: 'var(--warning-color)', border: '1px solid var(--warning-color)' }}
-                    onClick={() => updateStatus('SKIPPED')}
-                    disabled={actionLoading}
-                  >
-                    <SkipForward size={18} /> SKIP TOKEN
-                  </button>
-               </div>
-
-             </div>
-           )}
-
-        </div>
-
-
-         {/* Live Waiting Queue Table */}
-         <div className="card" style={{ marginTop: '30px' }}>
-             <h3 style={{ marginBottom: '20px', color: 'var(--primary-color)' }}>Waiting Tokens Queue</h3>
-             {waitingTokens.length === 0 ? (
-                 <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>No tokens are currently waiting.</div>
-             ) : (
-                 <div style={{ overflowX: 'auto' }}>
-                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                         <thead>
-                             <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)' }}>
-                                 <th style={{ padding: '12px' }}>Token</th>
-                                 <th style={{ padding: '12px' }}>Service</th>
-                                 <th style={{ padding: '12px' }}>Position</th>
-                                 <th style={{ padding: '12px' }}>Ahead</th>
-                                 <th style={{ padding: '12px' }}>Created</th>
-                                 <th style={{ padding: '12px' }}>Est. Wait</th>
-                                 <th style={{ padding: '12px' }}>Status</th>
-                             </tr>
-                         </thead>
-                         <tbody>
-                             {waitingTokens.map(t => (
-                                 <tr key={t.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                                     <td style={{ padding: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>{t.number}</td>
-                                     <td style={{ padding: '12px' }}>{t.service}</td>
-                                     <td style={{ padding: '12px' }}>#{t.position}</td>
-                                     <td style={{ padding: '12px' }}>{t.people_ahead}</td>
-                                     <td style={{ padding: '12px' }}>{t.created_at}</td>
-                                     <td style={{ padding: '12px', color: 'var(--accent-color)', fontWeight: 600 }}>~{Math.round(t.base_wait_mins)} min</td>
-                                     <td style={{ padding: '12px' }}><span className="badge badge-warning" style={{ fontSize: '0.8rem', padding: '4px 8px' }}>WAITING</span></td>
-                                 </tr>
-                             ))}
-                         </tbody>
-                     </table>
-                 </div>
-             )}
-         </div>
       </div>
     </div>
   );

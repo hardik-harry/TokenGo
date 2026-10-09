@@ -17,20 +17,47 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const [analytics, setAnalytics] = useState(null);
   const [mlMetrics, setMlMetrics] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   
   useEffect(() => {
-    // Parallel fetching for high-performance dashboards
+    setIsLoading(true);
+    setError(null);
     Promise.all([
       api.get('/admin/analytics'),
       api.get('/admin/model-metrics')
     ]).then(([analyticsRes, mlRes]) => {
       setAnalytics(analyticsRes.data);
       setMlMetrics(mlRes.data);
-    }).catch(console.error);
+    }).catch(err => {
+      console.error(err);
+      setError("Unable to load admin statistics. Please try again.");
+    }).finally(() => {
+      setIsLoading(false);
+    });
   }, []);
 
-  if (!analytics || !mlMetrics) {
-    return <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>Loading Admin Algorithms...</div>;
+  if (isLoading) {
+    return <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>Loading dashboard...</div>;
+  }
+
+  if (error) {
+    return <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--danger-color)' }}>{error}</div>;
+  }
+
+  if (!analytics || analytics.kpis.total_tokens === 0) {
+    return (
+      <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column' }}>
+        <h2 style={{ marginBottom: '10px' }}>No queue activity yet.</h2>
+        <div style={{ display: 'flex', gap: '20px', marginTop: '20px' }}>
+          <div>Waiting: 0</div>
+          <div>Serving: 0</div>
+          <div>Completed Today: 0</div>
+          <div>Skipped Today: 0</div>
+          <div>No-Show Today: 0</div>
+        </div>
+      </div>
+    );
   }
 
   const { kpis, charts } = analytics;

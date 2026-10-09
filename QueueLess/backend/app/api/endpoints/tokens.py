@@ -42,11 +42,18 @@ def get_user_tokens(
     Retrieve all tokens created securely by the active citizen.
     """
     tokens = db.query(Token).filter(Token.user_id == current_user.id).order_by(Token.created_at.desc()).all()
+    from app.models.models import ServiceSession
     # Dummy stat injections for historical view completeness
     for tk in tokens:
         tk.people_ahead = 0
         tk.queue_position = 0
         tk.current_queue_length = 0
+        tk.started_at = None
+        tk.completed_at = None
+        session = db.query(ServiceSession).filter(ServiceSession.token_id == tk.id).first()
+        if session:
+            tk.started_at = session.started_at
+            tk.completed_at = session.ended_at
     return tokens
 
 @router.get("/{token_id}", response_model=TokenResponse)

@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from typing import Optional
+from pathlib import Path
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "QueueLess API"
@@ -22,7 +23,7 @@ class Settings(BaseSettings):
         return f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
     class Config:
-        env_file = "../.env"
+        env_file = str(Path(__file__).resolve().parent.parent.parent.parent / ".env")
         case_sensitive = True
 
 settings = Settings()
