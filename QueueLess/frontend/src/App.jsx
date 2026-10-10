@@ -9,6 +9,10 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import Profile from './pages/Profile';
 import Help from './pages/Help';
 import TrackRedirect from './pages/TrackRedirect';
+import TokenVerify from './pages/TokenVerify';
+import CitizenRights from './pages/CitizenRights';
+import RtoDirectory from './pages/RtoDirectory';
+import Contact from './pages/Contact';
 
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminOffices from './pages/admin/AdminOffices';
@@ -16,6 +20,7 @@ import AdminServices from './pages/admin/AdminServices';
 import AdminCounters from './pages/admin/AdminCounters';
 import AdminTokens from './pages/admin/AdminTokens';
 import AdminQueue from './pages/admin/AdminQueue';
+import AdminEmployees from './pages/admin/AdminEmployees';
 
 import Register from './pages/Register';
 
@@ -45,6 +50,10 @@ const App = () => {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/verify-token/:tokenReference" element={<TokenVerify />} />
+          <Route path="/citizen-rights" element={<CitizenRights />} />
+          <Route path="/rto-directory" element={<RtoDirectory />} />
+          <Route path="/contact" element={<Contact />} />
           
           {/* Since our Home.jsx elegantly wraps RTO selection and service mappings on-page, we natively fallback here! */}
           <Route path="/offices" element={<Navigate to="/" replace />} />
@@ -74,7 +83,7 @@ const App = () => {
           <Route path="/admin/tokens" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminTokens /></AdminLayout></ProtectedRoute>} />
           <Route path="/admin/queue" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminQueue /></AdminLayout></ProtectedRoute>} />
           
-          <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><Placeholder title="User & Staff Database" /></AdminLayout></ProtectedRoute>} />
+          <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminEmployees /></AdminLayout></ProtectedRoute>} />
           <Route path="/admin/data" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><Placeholder title="Data Management" /></AdminLayout></ProtectedRoute>} />
           <Route path="/admin/model" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><Placeholder title="ML Model Diagnostics" /></AdminLayout></ProtectedRoute>} />
           <Route path="/admin/audit" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><Placeholder title="Audit Logs (Read Only)" /></AdminLayout></ProtectedRoute>} />

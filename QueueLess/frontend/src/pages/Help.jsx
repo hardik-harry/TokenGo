@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, CheckCircle, MonitorSmartphone, Clock, ArrowLeft } from 'lucide-react';
+import Footer from '../components/Footer';
 
 const Help = () => {
   const navigate = useNavigate();
@@ -18,52 +19,65 @@ const Help = () => {
         </div>
       </div>
 
-      <div className="container animate-fade-in" style={{ marginTop: '40px', maxWidth: '1000px' }}>
+      <div className="container animate-fade-in" style={{ marginTop: '40px', maxWidth: '1000px', paddingBottom: '40px' }}>
         <div style={{ textAlign: 'center', marginBottom: '50px' }}>
-          <h2 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#1e3a8a', marginBottom: '16px' }}>How to use TokenGo</h2>
-          <p style={{ fontSize: '1.1rem', color: '#475569' }}>Follow these simple steps to successfully retrieve your virtual line token and track it in real-time.</p>
+          <h2 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#1e3a8a', marginBottom: '16px' }}>How can we assist you?</h2>
+          <p style={{ fontSize: '1.1rem', color: '#475569' }}>Find answers to frequently asked questions, office hours, and support contacts.</p>
         </div>
 
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', 
-          gap: '30px' 
-        }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '30px' }}>
           
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '15px', padding: '40px 30px' }}>
-            <div style={{ width: '70px', height: '70px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1e3a8a' }}>
-              <Building2 size={32} />
+          {/* FAQs */}
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px', padding: '30px' }}>
+            <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px' }}>Frequently Asked Questions</h3>
+            <div>
+              <h5 style={{ fontWeight: 700, color: '#0f172a' }}>Do I need to print my token?</h5>
+              <p style={{ fontSize: '0.95rem', color: '#475569', marginTop: '4px' }}>No, showing the live token track screen on your mobile device is sufficient.</p>
             </div>
-            <h4 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e293b' }}>1. Select a Government Office</h4>
-            <p style={{ fontSize: '1.05rem', color: '#475569', lineHeight: '1.6' }}>On the home page, log in to your account and locate the Token Generator Widget. Use the first dropdown to select the RTO office closest to you.</p>
+            <div style={{ marginTop: '10px' }}>
+              <h5 style={{ fontWeight: 700, color: '#0f172a' }}>What happens if I miss my turn?</h5>
+              <p style={{ fontSize: '0.95rem', color: '#475569', marginTop: '4px' }}>Tokens that are skipped due to a no-show are automatically cancelled after 15 minutes.</p>
+            </div>
           </div>
 
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '15px', padding: '40px 30px' }}>
-            <div style={{ width: '70px', height: '70px', borderRadius: '50%', background: '#ffedd5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ea580c' }}>
-              <CheckCircle size={32} />
-            </div>
-            <h4 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e293b' }}>2. Select your Service</h4>
-            <p style={{ fontSize: '1.05rem', color: '#475569', lineHeight: '1.6' }}>Use the second dropdown to tell us what you need help with today (e.g., Driving Licence Renewal, Learner's Test, Registration). The machine learning algorithm will immediately predict your wait time based on your selections.</p>
+          {/* Cancellation Instructions */}
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px', padding: '30px' }}>
+            <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px' }}>Token Cancellation</h3>
+            <p style={{ fontSize: '0.95rem', color: '#475569', lineHeight: '1.6' }}>
+              If you can no longer make your designated time:
+              <br/><br/>
+              1. Open your <strong>Dashboard</strong> or <strong>Track Token</strong> page.<br/>
+              2. Locate the active token you wish to void.<br/>
+              3. Click the red <strong>Cancel Reservation</strong> button.<br/>
+              <br/>
+              <em>Note: Tokens marked as 'Serving' or 'Completed' cannot be cancelled.</em>
+            </p>
           </div>
 
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '15px', padding: '40px 30px' }}>
-            <div style={{ width: '70px', height: '70px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1e3a8a' }}>
-               <MonitorSmartphone size={32} />
-            </div>
-            <h4 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e293b' }}>3. Get your Virtual Line Token</h4>
-            <p style={{ fontSize: '1.05rem', color: '#475569', lineHeight: '1.6' }}>Click the large orange "Get Virtual Line Token" button. Your spot in line is instantly reserved and linked directly to your secure account.</p>
+          {/* Office Timings */}
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px', padding: '30px' }}>
+            <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px' }}>Standard Office Timings</h3>
+            <ul style={{ listStyleType: 'none', padding: 0, margin: 0, fontSize: '0.95rem', color: '#475569', lineHeight: '1.8' }}>
+              <li><strong>Monday - Friday:</strong> 10:00 AM - 6:00 PM</li>
+              <li><strong>Saturday:</strong> 10:00 AM - 2:00 PM</li>
+              <li><strong>Sunday & Public Holidays:</strong> Closed</li>
+            </ul>
+            <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '10px' }}>* Specific RTO hours may vary. Please check your assigned branch.</p>
           </div>
 
-          <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '15px', padding: '40px 30px' }}>
-            <div style={{ width: '70px', height: '70px', borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#16a34a' }}>
-               <Clock size={32} />
-            </div>
-            <h4 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e293b' }}>4. Track Token Wait Time</h4>
-            <p style={{ fontSize: '1.05rem', color: '#475569', lineHeight: '1.6' }}>Wait from the comfort of your home. You can always click "Track Token" or "Dashboard" in the navigation bar to see exactly how many people are ahead of you. We will alert you (via desktop push notifications) when your turn approaches!</p>
+          {/* Contact Info */}
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '15px', padding: '30px' }}>
+            <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px' }}>Contact Details</h3>
+            <p style={{ fontSize: '0.95rem', color: '#475569', lineHeight: '1.6' }}>
+              <strong>Support Email:</strong> support@tokengo.gov<br/>
+              <strong>Toll-Free Helpline:</strong> 1800-111-2222<br/>
+              <strong>Headquarters:</strong> Transport Bhavan, Phase 1, Neo City.
+            </p>
           </div>
           
         </div>
       </div>
+      <Footer />
     </div>
   );
 };

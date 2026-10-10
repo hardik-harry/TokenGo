@@ -56,6 +56,26 @@ def get_user_tokens(
             tk.completed_at = session.ended_at
     return tokens
 
+@router.get("/verify/{token_number}", response_model=TokenResponse)
+def verify_token(
+    token_number: str,
+    db: Session = Depends(deps.get_db)
+) -> Any:
+    """
+    Publicly verify a token's status and details using its unique number without requiring auth.
+    Uses token_number as reference.
+    """
+    token = db.query(Token).filter(Token.token_number == token_number).first()
+    if not token:
+        raise HTTPException(status_code=404, detail="Token not found or invalid.")
+
+    stats = QueueManager.get_queue_stats(db, token.office_id, token.service_id, token.id)
+    token.people_ahead = stats["people_ahead"]
+    token.queue_position = stats["queue_position"]
+    token.current_queue_length = stats["current_queue_length"]
+    
+    return token
+
 @router.get("/{token_id}", response_model=TokenResponse)
 def read_token(
     token_id: int,

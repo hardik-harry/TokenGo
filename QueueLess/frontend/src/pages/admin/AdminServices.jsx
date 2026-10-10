@@ -119,8 +119,8 @@ const AdminServices = () => {
       {isLoading ? (
         <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading services...</div>
       ) : (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+        <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '700px' }}>
             <thead style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
               <tr>
                 {['ID', 'Code', 'Name', 'Avg Service Time', 'Status', 'Actions'].map(h => (
@@ -159,13 +159,14 @@ const AdminServices = () => {
       )}
 
       {showModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div className="card animate-fade-in" style={{ width: '480px', padding: '32px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
+          <div className="card animate-fade-in" style={{ width: '480px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: '0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px 32px', borderBottom: '1px solid var(--border-color)' }}>
               <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0 }}>{editing ? 'Edit Service' : 'Add New Service'}</h3>
               <X size={20} style={{ cursor: 'pointer', color: 'var(--text-secondary)' }} onClick={() => setShowModal(false)} />
             </div>
-            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {!editing && (
                 <div>
                   <label className="label">Office Assignment *</label>
@@ -203,7 +204,8 @@ const AdminServices = () => {
                   <option value="inactive">Inactive</option>
                 </select>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+              </div>
+              <div style={{ padding: '20px 32px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '10px', background: '#f8fafc', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px' }}>
                 <button type="button" className="btn-outline" onClick={() => setShowModal(false)} disabled={saving}>Cancel</button>
                 <button type="submit" className="btn-accent" disabled={saving}>
                   {saving ? 'Saving...' : (editing ? 'Save Changes' : 'Create Service')}

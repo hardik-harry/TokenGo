@@ -26,7 +26,7 @@ const AdminEmployees = () => {
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [toast, setToast] = useState(null);
-  const [formData, setFormData] = useState({ name: '', email: '', mobile_number: '', assigned_office_id: '', assigned_counter_id: '', status: 'active' });
+  const [formData, setFormData] = useState({ name: '', email: '', new_password: '', mobile_number: '', assigned_office_id: '', assigned_counter_id: '', status: 'active' });
   const [errors, setErrors] = useState({});
 
   const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 4000); };
@@ -55,6 +55,8 @@ const AdminEmployees = () => {
   const validate = () => {
     const e = {};
     if (!formData.name?.trim()) e.name = 'Name is required.';
+    if (!formData.email?.trim()) e.email = 'Email is required.';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) e.email = 'Invalid email format.';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -66,7 +68,9 @@ const AdminEmployees = () => {
     try {
       const payload = {
         name: formData.name,
+        email: formData.email,
         mobile_number: formData.mobile_number || null,
+        new_password: formData.new_password || null,
         assigned_office_id: formData.assigned_office_id ? parseInt(formData.assigned_office_id) : null,
         assigned_counter_id: formData.assigned_counter_id ? parseInt(formData.assigned_counter_id) : null,
         status: formData.status,
@@ -97,6 +101,7 @@ const AdminEmployees = () => {
     setFormData({
       name: emp.name,
       email: emp.email,
+      new_password: '',
       mobile_number: emp.mobile_number || '',
       assigned_office_id: emp.assigned_office_id || '',
       assigned_counter_id: emp.assigned_counter_id || '',
@@ -125,8 +130,8 @@ const AdminEmployees = () => {
       {isLoading ? (
         <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading employees...</div>
       ) : (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+        <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '700px' }}>
             <thead style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
               <tr>
                 {['Name', 'Email', 'Assigned Office', 'Assigned Counter', 'Status', 'Actions'].map(h => (
@@ -171,53 +176,63 @@ const AdminEmployees = () => {
       )}
 
       {showModal && editing && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div className="card animate-fade-in" style={{ width: '500px', padding: '32px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
+          <div className="card animate-fade-in" style={{ width: '500px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: '0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px 32px', borderBottom: '1px solid var(--border-color)' }}>
               <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0 }}>Edit Employee</h3>
               <X size={20} style={{ cursor: 'pointer', color: 'var(--text-secondary)' }} onClick={() => setShowModal(false)} />
             </div>
-            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <label className="label">Full Name *</label>
-                <input className="input-field" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-                {errors.name && <div style={errStyle}>{errors.name}</div>}
-              </div>
-              <div>
-                <label className="label">Email <span style={{ fontWeight: 400, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>(read-only)</span></label>
-                <input className="input-field" value={formData.email} disabled style={{ opacity: 0.6 }} />
-              </div>
-              <div>
-                <label className="label">Mobile Number</label>
-                <input className="input-field" value={formData.mobile_number} onChange={e => setFormData({ ...formData, mobile_number: e.target.value })} placeholder="+91 9876543210" />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            
+            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div>
-                  <label className="label">Assigned Office</label>
-                  <select className="select-field" value={formData.assigned_office_id}
-                    onChange={e => setFormData({ ...formData, assigned_office_id: e.target.value, assigned_counter_id: '' })}>
-                    <option value="">— None —</option>
-                    {offices.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-                  </select>
+                  <label className="label">Full Name *</label>
+                  <input className="input-field" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                  {errors.name && <div style={errStyle}>{errors.name}</div>}
                 </div>
                 <div>
-                  <label className="label">Assigned Counter</label>
-                  <select className="select-field" value={formData.assigned_counter_id}
-                    onChange={e => setFormData({ ...formData, assigned_counter_id: e.target.value })}
-                    disabled={!formData.assigned_office_id}>
-                    <option value="">— None —</option>
-                    {filteredCounters.map(c => <option key={c.id} value={c.id}>{c.counter_name}</option>)}
+                  <label className="label">Email Address *</label>
+                  <input type="email" className="input-field" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                  {errors.email && <div style={errStyle}>{errors.email}</div>}
+                </div>
+                <div>
+                  <label className="label">Mobile Number</label>
+                  <input className="input-field" value={formData.mobile_number} onChange={e => setFormData({ ...formData, mobile_number: e.target.value })} placeholder="+91 9876543210" />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label className="label">Assigned Office</label>
+                    <select className="select-field" value={formData.assigned_office_id}
+                      onChange={e => setFormData({ ...formData, assigned_office_id: e.target.value, assigned_counter_id: '' })}>
+                      <option value="">— None —</option>
+                      {offices.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Assigned Counter</label>
+                    <select className="select-field" value={formData.assigned_counter_id}
+                      onChange={e => setFormData({ ...formData, assigned_counter_id: e.target.value })}
+                      disabled={!formData.assigned_office_id}>
+                      <option value="">— None —</option>
+                      {filteredCounters.map(c => <option key={c.id} value={c.id}>{c.counter_name}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="label">Account Status</label>
+                  <select className="select-field" value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
                   </select>
                 </div>
+                <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '8px 0' }} />
+                <div>
+                  <label className="label">New Password <span style={{ fontWeight: 400, color: 'var(--text-secondary)', fontSize: '0.85rem' }}>(leave blank to keep current)</span></label>
+                  <input type="password" className="input-field" value={formData.new_password} onChange={e => setFormData({ ...formData, new_password: e.target.value })} placeholder="Enter new password" />
+                </div>
               </div>
-              <div>
-                <label className="label">Account Status</label>
-                <select className="select-field" value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+              
+              <div style={{ padding: '20px 32px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '10px', background: '#f8fafc', borderBottomLeftRadius: '12px', borderBottomRightRadius: '12px' }}>
                 <button type="button" className="btn-outline" onClick={() => setShowModal(false)} disabled={saving}>Cancel</button>
                 <button type="submit" className="btn-accent" disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</button>
               </div>

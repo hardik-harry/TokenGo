@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { User as UserIcon, Mail, Phone, Shield, Calendar, Bell, Key, Globe, Moon, Save, X, ActivitySquare, Ticket, LogOut } from 'lucide-react';
-import NotificationBell from '../components/NotificationBell';
+
 
 const Profile = () => {
     const { user, setUser, logout } = useAuth();
@@ -207,7 +207,6 @@ const Profile = () => {
                     <span style={{ fontSize: '1.25rem', fontWeight: 600 }}>TokenGo</span>
                 </div>
                 <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-                    <NotificationBell />
                     <button className="btn-outline" style={{ color: 'white', borderColor: 'rgba(255,255,255,0.4)', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={logout}>
                         <LogOut size={16} /> Sign Out
                     </button>

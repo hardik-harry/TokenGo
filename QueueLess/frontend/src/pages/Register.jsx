@@ -1,22 +1,33 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus, Key, Mail, User, AlertTriangle } from 'lucide-react';
+import { UserPlus, Key, Mail, User, AlertTriangle, Phone, Eye, EyeOff, Check, X } from 'lucide-react';
 import api from '../services/api';
 
 const Register = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [mobileNumber, setMobileNumber] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!/^\d{10}$/.test(mobileNumber) && !/^\+91\d{10}$/.test(mobileNumber)) {
+      setError("Please enter a valid 10-digit mobile number.");
+      return;
+    }
+    if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password) || !/[@#$%!&]/.test(password)) {
+      setError("Password does not meet all security requirements.");
+      return;
+    }
+
     setIsSubmitting(true);
     setError('');
     try {
-      await api.post('/auth/register', { name, email, password });
+      await api.post('/auth/register', { name, email, mobile_number: mobileNumber, password });
       navigate('/login');
     } catch (err) {
       let errorMsg = 'Failed to register. Please try again.';
@@ -80,16 +91,58 @@ const Register = () => {
           </div>
           <div>
             <div style={{ position: 'relative' }}>
-              <Key size={18} color="var(--text-secondary)" style={{ position: 'absolute', top: '15px', left: '16px' }} />
+              <Phone size={18} color="var(--text-secondary)" style={{ position: 'absolute', top: '15px', left: '16px' }} />
               <input 
-                type="password" 
-                placeholder="Password" 
+                type="tel" 
+                placeholder="Mobile Number" 
                 className="input-field" 
                 style={{ paddingLeft: '45px' }}
+                value={mobileNumber}
+                onChange={e => {
+                  const val = e.target.value.replace(/[^\d+]/g, '');
+                  setMobileNumber(val);
+                }}
+                required
+              />
+            </div>
+          </div>
+          <div>
+            <div style={{ position: 'relative' }}>
+              <Key size={18} color="var(--text-secondary)" style={{ position: 'absolute', top: '15px', left: '16px' }} />
+              <input 
+                type={showPassword ? "text" : "password"} 
+                placeholder="Password" 
+                className="input-field" 
+                style={{ paddingLeft: '45px', paddingRight: '45px' }}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
               />
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{ position: 'absolute', top: '13px', right: '12px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+            
+            <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.85rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: password.length >= 8 ? 'var(--success-color)' : 'var(--text-secondary)' }}>
+                {password.length >= 8 ? <Check size={14} /> : <X size={14} />} At least 8 characters
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: /[A-Z]/.test(password) ? 'var(--success-color)' : 'var(--text-secondary)' }}>
+                {/[A-Z]/.test(password) ? <Check size={14} /> : <X size={14} />} One uppercase letter
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: /[a-z]/.test(password) ? 'var(--success-color)' : 'var(--text-secondary)' }}>
+                {/[a-z]/.test(password) ? <Check size={14} /> : <X size={14} />} One lowercase letter
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: /\d/.test(password) ? 'var(--success-color)' : 'var(--text-secondary)' }}>
+                {/\d/.test(password) ? <Check size={14} /> : <X size={14} />} One number
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: /[@#$%!&]/.test(password) ? 'var(--success-color)' : 'var(--text-secondary)' }}>
+                {/[@#$%!&]/.test(password) ? <Check size={14} /> : <X size={14} />} One special character (@, #, $)
+              </div>
             </div>
           </div>
 

@@ -3,22 +3,19 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { 
   Ticket, MapPin, Monitor, Clock, Users, ArrowLeft, 
-  WifiOff, Wifi, AlertTriangle, CheckCircle 
+  WifiOff, CheckCircle 
 } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
 import { formatWaitDuration, calculateAverageWait } from '../utils/timeUtils';
 
-const TokenLive = () => {
-  const { tokenId } = useParams();
+const TokenVerify = () => {
+  const { tokenReference } = useParams();
   const navigate = useNavigate();
   
   const [token, setToken] = useState(null);
   const [officeName, setOfficeName] = useState('Loading Office...');
   const [serviceName, setServiceName] = useState('Loading Service...');
+  const [error, setError] = useState(null);
   
-  // formatTime is safely removed since we utilize centralized formatWaitDuration
-  
-  // Realtime Socket Payload Fields
   const [liveData, setLiveData] = useState({
     current_serving_token: '-',
     queue_length: 0,
@@ -31,18 +28,13 @@ const TokenLive = () => {
     prediction_source: 'INITIALIZING'
   });
 
-  const [wsConnected, setWsConnected] = useState(false);
-  const [isApproaching, setIsApproaching] = useState(false);
-  const wsRef = useRef(null);
   const pollRef = useRef(null);
 
-  // 1. Fetch Structural Ground-Truth Data
   const fetchBaseTokenData = async () => {
     try {
-      const res = await api.get(`/tokens/${tokenId}`);
+      const res = await api.get(`/tokens/verify/${tokenReference}`);
       setToken(res.data);
       
-      // Map names directly via independent API calls for RESTful separation
       const officeRes = await api.get(`/offices/${res.data.office_id}`);
       setOfficeName(officeRes.data.name);
       
@@ -53,25 +45,22 @@ const TokenLive = () => {
       return res.data;
     } catch (err) {
       console.error(err);
+      setError('Token not found or invalid.');
       return null;
     }
   };
 
-  // 2. The REST Polling Fallback protocol!
   const executePollingFallback = async (baseToken) => {
     try {
-      // Refresh token stats
-      const currentToken = await api.get(`/tokens/${tokenId}`);
+      const currentToken = await api.get(`/tokens/verify/${tokenReference}`);
       setToken(currentToken.data);
       
-      // Calculate prediction manually since socket is dead
       const predRes = await api.post('/predictions/wait-time', {
         office_id: baseToken.office_id,
         service_id: baseToken.service_id,
-        token_id: parseInt(tokenId)
+        token_id: currentToken.data.id
       });
       
-      // Structuring mock payload exactly mimicking the Socket Blast
       setLiveData({
         current_serving_token: 'N/A (Polling)',
         queue_length: currentToken.data.current_queue_length,
@@ -85,7 +74,7 @@ const TokenLive = () => {
       });
 
     } catch (e) {
-      console.error("Polling Engine Trapped Error", e);
+      console.error("Polling Engine Error", e);
     }
   };
 
@@ -96,51 +85,32 @@ const TokenLive = () => {
       activeToken = await fetchBaseTokenData();
       if (!activeToken) return;
 
-      const connectWebSocket = () => {
-        const tokenJWT = localStorage.getItem('token');
-        const wsUrl = `ws://localhost:8000/api/v1/ws/queue/${activeToken.office_id}/${activeToken.service_id}?token_id=${tokenId}&auth_token=${tokenJWT}`;
-        wsRef.current = new WebSocket(wsUrl);
-
-        wsRef.current.onopen = () => {
-          setWsConnected(true);
-          if (pollRef.current) clearInterval(pollRef.current);
-        };
-
-        wsRef.current.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          setLiveData(data);
-          
-          if (data.people_waiting <= 2 && activeToken.status !== 'COMPLETED') {
-             setIsApproaching(true);
-          } else {
-             setIsApproaching(false);
-          }
-        };
-
-        wsRef.current.onclose = () => {
-          setWsConnected(false);
-          // Graceful Polling Fallback if WS violently crashes!
-          pollRef.current = setInterval(() => {
-             executePollingFallback(activeToken);
-          }, 15000); // 15s checks
-        };
-      };
-
-      connectWebSocket();
+      executePollingFallback(activeToken);
+      pollRef.current = setInterval(() => {
+         executePollingFallback(activeToken);
+      }, 15000); // 15s checks
     };
 
     initialize();
 
     return () => {
-      if (wsRef.current) wsRef.current.close();
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [tokenId]);
+  }, [tokenReference]);
+
+  if (error) {
+    return (
+      <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column' }}>
+        <h2 style={{ color: 'var(--danger-color)' }}>{error}</h2>
+        <button onClick={() => navigate('/')} className="btn-primary" style={{ marginTop: '20px' }}>Return Home</button>
+      </div>
+    );
+  }
 
   if (!token) {
     return (
       <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <h2>Loading Live Environment...</h2>
+        <h2>Verifying Token...</h2>
       </div>
     );
   }
@@ -148,84 +118,36 @@ const TokenLive = () => {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-secondary)', paddingBottom: '60px' }}>
       
-      {/* Structural Top Banner */}
       <div style={{ background: 'var(--primary-color)', color: 'white', padding: '20px 24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-        <button onClick={() => navigate('/offices')} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+        <button onClick={() => navigate('/')} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
           <ArrowLeft size={24} /> 
         </button>
         <div>
-          <h1 style={{ fontSize: '1.4rem', fontWeight: 600 }}>Virtual Token Live Tracker</h1>
-          <p style={{ opacity: 0.8, fontSize: '0.9rem' }}>Secure Government Issue Gateway</p>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 600 }}>Verified Token Details</h1>
+          <p style={{ opacity: 0.8, fontSize: '0.9rem' }}>Official Read-Only View</p>
         </div>
       </div>
 
       <div className="container" style={{ marginTop: '30px' }}>
         
-        {/* Dynamic Warning Notification */}
-        {isApproaching && (
-          <div className="animate-fade-in" style={{ background: '#fef3c7', border: '1px solid #f59e0b', color: '#b45309', padding: '16px', borderRadius: '8px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '15px' }}>
-            <AlertTriangle size={24} color="#f59e0b" />
-            <div>
-              <strong style={{ display: 'block', fontSize: '1.1rem' }}>It's almost your turn!</strong>
-              <span style={{ fontSize: '0.95rem' }}>Please head towards the counter area gracefully. There are 2 or less people ahead of you.</span>
-            </div>
-          </div>
-        )}
-
-        {/* Network Sync Feedback */}
-        {!wsConnected && (
-          <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger-color)', padding: '12px', borderRadius: '8px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', fontWeight: 500 }}>
-             <WifiOff size={18} />
-             Real-time socket offline. Utilizing graceful data polling natively.
-          </div>
-        )}
-        {wsConnected && (
-          <div style={{ background: 'rgba(22, 163, 74, 0.1)', color: 'var(--success-color)', padding: '12px', borderRadius: '8px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', fontWeight: 500 }}>
-             <Wifi size={18} />
-             Live Sync Active across Government WebSocket Hub.
-          </div>
-        )}
+        <div style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', padding: '12px', borderRadius: '8px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.9rem', fontWeight: 500 }}>
+             <CheckCircle size={18} />
+             This token is officially verified. (Read-Only)
+        </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
           
-          {/* Main Identifier Card */}
           <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', borderTop: '4px solid var(--primary-color)' }}>
-            <h3 style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Your Token</h3>
+            <h3 style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Token Number</h3>
             <div style={{ fontSize: '4.5rem', fontWeight: 800, color: 'var(--text-primary)', margin: '15px 0' }}>
               {token.token_number}
             </div>
             
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '15px' }}>
-              <div style={{ background: 'white', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'inline-block' }}>
-                <QRCodeSVG value={`${window.location.origin}/verify-token/${token.token_number}`} size={120} />
-              </div>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 500 }}>Scan to View Token</span>
-            </div>
-            
             <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-               <span className={`badge ${token.status === 'WAITING' ? 'badge-warning' : (token.status === 'CALLED' ? 'badge-active' : 'badge-danger')}`} style={{ fontSize: '0.9rem', padding: '6px 16px' }}>
+               <span className={`badge ${token.status === 'WAITING' ? 'badge-warning' : (token.status === 'CALLED' ? 'badge-active' : (token.status === 'COMPLETED' ? 'badge-success' : 'badge-danger'))}`} style={{ fontSize: '0.9rem', padding: '6px 16px' }}>
                  {token.status}
                </span>
             </div>
-            
-            {(token.status === 'WAITING' || token.status === 'CALLED') && (
-              <button 
-                className="btn-outline" 
-                style={{ marginTop: '15px', color: 'var(--danger-color)', borderColor: 'var(--danger-color)', padding: '6px 20px', fontSize: '0.9rem' }}
-                onClick={async () => {
-                   try {
-                       await api.post(`/tokens/${tokenId}/cancel`);
-                       // Refetch locally safely bypassing WebSockets lag intentionally
-                       const res = await api.get(`/tokens/${tokenId}`);
-                       setToken(res.data);
-                   } catch (err) {
-                       alert("Failed to cancel token. It might already be processing.");
-                   }
-                }}
-              >
-                Cancel Reservation
-              </button>
-            )}
             
             <hr style={{ width: '100%', border: 'none', borderTop: '1px solid var(--border-color)', margin: '25px 0' }} />
             
@@ -251,13 +173,19 @@ const TokenLive = () => {
                    <div style={{ fontWeight: 800, color: 'var(--accent-color)', fontSize: '1.2rem' }}>{liveData.current_serving_token}</div>
                  </div>
                </div>
+               <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                 <Clock size={20} color="var(--primary-color)" />
+                 <div>
+                   <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Last Updated</div>
+                   <div style={{ fontWeight: 600 }}>{new Date().toLocaleTimeString()}</div>
+                 </div>
+               </div>
             </div>
           </div>
 
-          {/* AI Metrics Panel */}
           <div className="card" style={{ borderTop: '4px solid var(--accent-color)' }}>
             <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--primary-color)' }}>
-              <Clock size={22} /> Predictive Analytics
+              <Clock size={22} /> Queue Analytics
             </h3>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
@@ -269,13 +197,6 @@ const TokenLive = () => {
                   </div>
                   <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
                     Prediction Range: {formatWaitDuration(liveData.lower_bound_minutes)} – {formatWaitDuration(liveData.upper_bound_minutes)}
-                  </div>
-               </div>
-
-               <div>
-                  <div style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>Recommended Arrival</div>
-                  <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {liveData.recommended_arrival_time}
                   </div>
                </div>
 
@@ -296,18 +217,12 @@ const TokenLive = () => {
                    <div style={{ fontSize: '1.1rem', fontWeight: 800 }}>{liveData.people_waiting}</div>
                  </div>
                </div>
-
-               <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '6px' }}>
-                 <CheckCircle size={14} color="var(--success-color)" /> Prediction Engine: <strong>{liveData.prediction_source}</strong>
-               </div>
-               
             </div>
           </div>
-
         </div>
       </div>
     </div>
   );
 };
 
-export default TokenLive;
+export default TokenVerify;

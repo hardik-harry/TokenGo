@@ -35,6 +35,7 @@ class CounterCreate(BaseModel):
 class EmployeeUpdate(BaseModel):
     name: Optional[str] = None
     email: Optional[str] = None
+    new_password: Optional[str] = None
     mobile_number: Optional[str] = None
     assigned_office_id: Optional[int] = None
     assigned_counter_id: Optional[int] = None
@@ -337,10 +338,22 @@ def get_admin_employees(db: Session = Depends(deps.get_db), current_user: User =
 
 @router.put("/employees/{employee_id}")
 def update_admin_employee(employee_id: int, data: EmployeeUpdate, db: Session = Depends(deps.get_db), current_user: User = Depends(deps.get_current_active_user)):
+    from app.core import security
     if current_user.role != "admin": raise HTTPException(status_code=403, detail="Admin only")
     emp = db.query(User).filter(User.id == employee_id, User.role == "employee").first()
     if not emp: raise HTTPException(status_code=404, detail="Employee not found")
+    
     update_data = data.dict(exclude_unset=True)
+    if "email" in update_data and update_data["email"] != emp.email:
+        existing = db.query(User).filter(User.email == update_data["email"]).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already in use by another account.")
+            
+    if "new_password" in update_data:
+        pwd = update_data.pop("new_password")
+        if pwd:
+            emp.password_hash = security.get_password_hash(pwd)
+            
     for k, v in update_data.items():
         setattr(emp, k, v)
     db.commit()

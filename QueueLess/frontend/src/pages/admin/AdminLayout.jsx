@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { 
   ActivitySquare, LayoutDashboard, Building2, Server, 
-  MapPin, CheckCircle, Bell, Settings, LogOut, Monitor
+  MapPin, CheckCircle, Bell, Settings, LogOut, Monitor, Users
 } from 'lucide-react';
 
 const AdminLayout = ({ children }) => {
@@ -17,6 +17,7 @@ const AdminLayout = ({ children }) => {
     { path: '/admin/services', name: 'Services', icon: <Server size={20} /> },
     { path: '/admin/counters', name: 'Counters', icon: <MapPin size={20} /> },
     { path: '/admin/tokens', name: 'Tokens', icon: <CheckCircle size={20} /> },
+    { path: '/admin/users', name: 'Employees', icon: <Users size={20} /> },
     { path: '/admin/queue', name: 'Queue Monitor', icon: <Monitor size={20} /> }
   ];
 

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import NotificationBell from '../components/NotificationBell';
 import api from '../services/api';
 import { formatWaitDuration, calculateAverageWait } from '../utils/timeUtils';
 import { 
   Building2, ChevronRight, User, LogIn, Clock, 
   MapPin, CheckCircle, Search, Monitor, ArrowRight 
 } from 'lucide-react';
+import Footer from '../components/Footer';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -94,13 +94,20 @@ const Home = () => {
         </div>
         
         <div className="nav-links">
-          <a href="#" className="nav-link" style={{ color: 'var(--primary-color)', fontWeight: 600 }}>Home</a>
-          <a href="#services" className="nav-link">Services</a>
+          <a href="/" className="nav-link" style={{ color: 'var(--primary-color)', fontWeight: 600 }} onClick={(e) => { e.preventDefault(); navigate('/'); }}>Home</a>
+          <a href="#services" className="nav-link" onClick={(e) => { 
+            e.preventDefault(); 
+            const el = document.getElementById('services');
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth' });
+            } else {
+              navigate('/');
+            }
+          }}>How It Works</a>
           <a href="/track" className="nav-link" onClick={(e) => { e.preventDefault(); navigate('/track'); }}>Track Token</a>
           <a href="/help" className="nav-link" onClick={(e) => { e.preventDefault(); navigate('/help'); }}>Help</a>
           
           <div style={{ marginLeft: '16px', borderLeft: '1px solid var(--border-color)', paddingLeft: '24px', display: 'flex', alignItems: 'center', gap: '15px' }}>
-            <NotificationBell />
             {!user ? (
               <button className="btn-outline" style={{ display: 'flex', alignItems: 'center', height: '38px', padding: '0 16px', borderRadius: '6px', fontWeight: 600 }} onClick={() => navigate('/login')}>Login</button>
             ) : (
@@ -239,30 +246,8 @@ const Home = () => {
           
         </div>
       </section>
-      
       {/* Footer */}
-      <footer className="footer">
-        <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0' }}>
-           <div>
-             <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '10px' }}>TokenGo Platform</h2>
-             <p style={{ opacity: 0.8, fontSize: '0.9rem' }}>© 2026 Official Virtual Queuing Transport Portal. <br/>All Rights Reserved.</p>
-           </div>
-           
-           <div style={{ display: 'flex', gap: '40px' }}>
-             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-               <strong style={{ marginBottom: '5px' }}>Gov Services</strong>
-               <a href="#" style={{ color: 'white', opacity: 0.8, textDecoration: 'none', fontSize: '0.9rem' }}>Citizen Rights</a>
-               <a href="#" style={{ color: 'white', opacity: 0.8, textDecoration: 'none', fontSize: '0.9rem' }}>RTO Directory</a>
-             </div>
-             
-             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-               <strong style={{ marginBottom: '5px' }}>Support</strong>
-               <a href="#" style={{ color: 'white', opacity: 0.8, textDecoration: 'none', fontSize: '0.9rem' }}>Platform Help</a>
-               <a href="#" style={{ color: 'white', opacity: 0.8, textDecoration: 'none', fontSize: '0.9rem' }}>Contact Department</a>
-             </div>
-           </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 };

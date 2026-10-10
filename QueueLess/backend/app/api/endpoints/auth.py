@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
+import re
 
 from app.api import deps
 from app.core import security
@@ -28,6 +29,26 @@ def register_user(
             detail="The user with this email already exists in the system.",
         )
     
+    if not user_in.mobile_number:
+        raise HTTPException(status_code=400, detail="Mobile number is required.")
+        
+    if not re.match(r'^(\+91)?\d{10}$', user_in.mobile_number):
+        raise HTTPException(status_code=400, detail="Invalid Indian mobile number.")
+        
+    user_mobile = db.query(User).filter(User.mobile_number == user_in.mobile_number).first()
+    if user_mobile:
+        raise HTTPException(
+            status_code=400,
+            detail="The user with this mobile number already exists in the system.",
+        )
+        
+    pwd = user_in.password
+    if len(pwd) < 8 or not re.search(r'[A-Z]', pwd) or not re.search(r'[a-z]', pwd) or not re.search(r'\d', pwd) or not re.search(r'[@#$%!&]', pwd):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must be at least 8 characters, with 1 uppercase, 1 lowercase, 1 number, and 1 special character."
+        )
+    
     # Enforce role boundaries on public registration (e.g. only citizens automatically)
     assigned_role = "citizen"
     if user_in.role in ["employee", "admin"]:
@@ -38,6 +59,7 @@ def register_user(
     user = User(
         name=user_in.name,
         email=user_in.email,
+        mobile_number=user_in.mobile_number,
         password_hash=security.get_password_hash(user_in.password),
         role=assigned_role
     )
