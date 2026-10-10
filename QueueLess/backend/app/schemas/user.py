@@ -39,3 +39,17 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     email: Optional[str] = None
     role: Optional[str] = None
+
+class UserSettingsUpdate(BaseModel):
+    notifications_enabled: Optional[bool] = None
+    language: Optional[str] = None
+    theme: Optional[str] = None
+
+class UserSettingsResponse(BaseModel):
+    notifications_enabled: bool
+    language: str
+    theme: str
+
+    class Config:
+        from_attributes = True
+

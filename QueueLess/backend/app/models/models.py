@@ -156,3 +156,45 @@ class AuditLog(Base):
     entity_id = Column(Integer, nullable=True)
     timestamp = Column(DateTime, default=datetime.utcnow)
     changes = Column(JSON, nullable=True)
+
+class UserSettings(Base):
+    __tablename__ = "user_settings"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False, index=True)
+    notifications_enabled = Column(Boolean, default=True, nullable=False)
+    language = Column(String, default="English", nullable=False)
+    theme = Column(String, default="Light", nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("User", backref="settings")
+
+
+class MockTestQuestion(Base):
+    __tablename__ = "mock_test_questions"
+    id = Column(Integer, primary_key=True, index=True)
+    category = Column(String, nullable=False, index=True)
+    question_text = Column(Text, nullable=False)
+    options = Column(JSON, nullable=False) # List of strings
+    correct_option = Column(Integer, nullable=False) # Index 0-3
+    explanation = Column(Text, nullable=False)
+    sign_type = Column(String, nullable=True) # Icon/Sign key if applicable
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class MockTestAttempt(Base):
+    __tablename__ = "mock_test_attempts"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    total_questions = Column(Integer, default=15)
+    correct_count = Column(Integer, nullable=False)
+    incorrect_count = Column(Integer, nullable=False)
+    unanswered_count = Column(Integer, nullable=False)
+    score = Column(Integer, nullable=False)
+    percentage = Column(Float, nullable=False)
+    time_taken_seconds = Column(Integer, nullable=False)
+    passed = Column(Boolean, nullable=False)
+    details_json = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", backref="mock_test_attempts")
+

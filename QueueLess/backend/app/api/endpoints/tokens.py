@@ -31,6 +31,12 @@ def create_token(
     from app.websocket.manager import manager
     background_tasks.add_task(manager.broadcast_queue_state, token.office_id, token.service_id)
     
+    # Trigger local email notification asynchronously
+    from app.utils.email import send_local_email
+    email_subject = f"Your TokenGo Ticket: {token.token_number}"
+    email_message = f"Hello {current_user.name},\n\nYour token has been successfully generated!\n\nToken Number: {token.token_number}\nQueue Position: {token.queue_position}\nEstimated People Ahead: {token.people_ahead}\n\nPlease keep an eye on your dashboard or the TokenGo platform for live updates and wait times."
+    background_tasks.add_task(send_local_email, current_user.email, email_subject, email_message)
+    
     return token
 
 @router.get("", response_model=list[TokenResponse])

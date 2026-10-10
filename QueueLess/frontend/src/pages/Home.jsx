@@ -106,6 +106,7 @@ const Home = () => {
           }}>How It Works</a>
           <a href="/track" className="nav-link" onClick={(e) => { e.preventDefault(); navigate('/track'); }}>Track Token</a>
           <a href="/help" className="nav-link" onClick={(e) => { e.preventDefault(); navigate('/help'); }}>Help</a>
+          <a href="/documents" className="nav-link" onClick={(e) => { e.preventDefault(); navigate('/documents'); }}>Documents</a>
           
           <div style={{ marginLeft: '16px', borderLeft: '1px solid var(--border-color)', paddingLeft: '24px', display: 'flex', alignItems: 'center', gap: '15px' }}>
             {!user ? (
@@ -158,6 +159,13 @@ const Home = () => {
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
                 </select>
+                
+                {selectedService && services.find(s => s.id.toString() === selectedService.toString())?.name.toLowerCase().includes('learner') && (
+                  <div className="animate-fade-in" style={{ marginTop: '12px', padding: '10px 14px', background: 'rgba(251, 146, 60, 0.1)', color: '#c2410c', border: '1px solid #fed7aa', borderRadius: '8px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Monitor size={18} color="var(--accent-color)" style={{ flexShrink: 0 }} />
+                    <span style={{ fontWeight: 500, lineHeight: 1.4 }}>Try the Learner's Licence online test! Please scroll down to start.</span>
+                  </div>
+                )}
               </div>
 
               {isLoading && (
@@ -245,8 +253,20 @@ const Home = () => {
           </div>
           
         </div>
+
+        {/* Mock Test Promotional Banner (Conditional) */}
+        {selectedService && services.find(s => s.id.toString() === selectedService.toString())?.name.toLowerCase().includes('learner') && (
+          <div className="card animate-fade-in" style={{ marginTop: '40px', padding: '40px', background: 'linear-gradient(135deg, var(--primary-color), var(--secondary-color))', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', borderRadius: '16px' }}>
+            <h3 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '16px' }}>Learning Licence Mock Test</h3>
+            <p style={{ fontSize: '1.1rem', opacity: 0.9, maxWidth: '600px', marginBottom: '30px' }}>
+              Practice traffic rules, road signs, and driving knowledge before your Learning Licence test.
+            </p>
+            <button className="btn-accent" style={{ fontSize: '1.1rem', padding: '14px 32px' }} onClick={() => navigate('/mock-test')}>
+              Start Mock Test <ArrowRight size={20} />
+            </button>
+          </div>
+        )}
       </section>
-      {/* Footer */}
       <Footer />
     </div>
   );

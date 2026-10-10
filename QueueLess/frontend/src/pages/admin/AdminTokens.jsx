@@ -31,15 +31,13 @@ const AdminTokens = () => {
       </div>
 
       {isLoading ? <div>Loading tokens...</div> : (
-        <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
+        <div className="card" style={{ padding: 0, overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 180px)' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '700px' }}>
+            <thead>
               <tr>
-                <th style={{ padding: '15px 20px', fontWeight: 600 }}>Token Number</th>
-                <th style={{ padding: '15px 20px', fontWeight: 600 }}>Office</th>
-                <th style={{ padding: '15px 20px', fontWeight: 600 }}>Service</th>
-                <th style={{ padding: '15px 20px', fontWeight: 600 }}>Time</th>
-                <th style={{ padding: '15px 20px', fontWeight: 600 }}>Status</th>
+                {['Token Number', 'Office', 'Service', 'Time', 'Status'].map(h => (
+                  <th key={h} style={{ padding: '15px 20px', fontWeight: 600, background: 'var(--bg-secondary)', position: 'sticky', top: 0, zIndex: 10, borderBottom: '1px solid var(--border-color)' }}>{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody>

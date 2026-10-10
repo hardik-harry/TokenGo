@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { SettingsProvider } from './context/SettingsContext';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import TokenLive from './pages/TokenLive';
@@ -13,6 +14,8 @@ import TokenVerify from './pages/TokenVerify';
 import CitizenRights from './pages/CitizenRights';
 import RtoDirectory from './pages/RtoDirectory';
 import Contact from './pages/Contact';
+import Documents from './pages/Documents';
+import MockTest from './pages/MockTest';
 
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminOffices from './pages/admin/AdminOffices';
@@ -44,52 +47,56 @@ const Placeholder = ({ title }) => (
 const App = () => {
   return (
     <AuthProvider>
-      <Router>
-        <Routes>
-          {/* Public Citizen Routes */}
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/verify-token/:tokenReference" element={<TokenVerify />} />
-          <Route path="/citizen-rights" element={<CitizenRights />} />
-          <Route path="/rto-directory" element={<RtoDirectory />} />
-          <Route path="/contact" element={<Contact />} />
-          
-          {/* Since our Home.jsx elegantly wraps RTO selection and service mappings on-page, we natively fallback here! */}
-          <Route path="/offices" element={<Navigate to="/" replace />} />
-          <Route path="/offices/:officeId" element={<Navigate to="/" replace />} />
-          <Route path="/offices/:officeId/services" element={<Navigate to="/" replace />} />
-          
-          <Route path="/help" element={<Help />} />
-          
-          {/* Protected Citizen Routes */}
-          <Route path="/track" element={<ProtectedRoute><TrackRedirect /></ProtectedRoute>} />
-          <Route path="/token/:tokenId" element={<ProtectedRoute><TokenLive /></ProtectedRoute>} />
-          <Route path="/history" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          
-          {/* Employee Routes */}
-          <Route path="/employee" element={<ProtectedRoute allowedRoles={['employee', 'admin']}><EmployeeDashboard /></ProtectedRoute>} />
-          <Route path="/employee/queue" element={<ProtectedRoute allowedRoles={['employee', 'admin']}><Placeholder title="Queue Management" /></ProtectedRoute>} />
-          <Route path="/employee/counter" element={<ProtectedRoute allowedRoles={['employee', 'admin']}><Placeholder title="Counter Controller" /></ProtectedRoute>} />
-          
-          {/* Admin Routes */}
-          <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminDashboard /></AdminLayout></ProtectedRoute>} />
-          <Route path="/admin/analytics" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminDashboard /></AdminLayout></ProtectedRoute>} />
-          
-          <Route path="/admin/offices" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminOffices /></AdminLayout></ProtectedRoute>} />
-          <Route path="/admin/services" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminServices /></AdminLayout></ProtectedRoute>} />
-          <Route path="/admin/counters" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminCounters /></AdminLayout></ProtectedRoute>} />
-          <Route path="/admin/tokens" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminTokens /></AdminLayout></ProtectedRoute>} />
-          <Route path="/admin/queue" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminQueue /></AdminLayout></ProtectedRoute>} />
-          
-          <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminEmployees /></AdminLayout></ProtectedRoute>} />
-          <Route path="/admin/data" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><Placeholder title="Data Management" /></AdminLayout></ProtectedRoute>} />
-          <Route path="/admin/model" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><Placeholder title="ML Model Diagnostics" /></AdminLayout></ProtectedRoute>} />
-          <Route path="/admin/audit" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><Placeholder title="Audit Logs (Read Only)" /></AdminLayout></ProtectedRoute>} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
+      <SettingsProvider>
+        <Router>
+          <Routes>
+            {/* Public Citizen Routes */}
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/verify-token/:tokenReference" element={<TokenVerify />} />
+            <Route path="/citizen-rights" element={<CitizenRights />} />
+            <Route path="/rto-directory" element={<RtoDirectory />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/documents" element={<Documents />} />
+            <Route path="/mock-test" element={<MockTest />} />
+            
+            {/* Since our Home.jsx elegantly wraps RTO selection and service mappings on-page, we natively fallback here! */}
+            <Route path="/offices" element={<Navigate to="/" replace />} />
+            <Route path="/offices/:officeId" element={<Navigate to="/" replace />} />
+            <Route path="/offices/:officeId/services" element={<Navigate to="/" replace />} />
+            
+            <Route path="/help" element={<Help />} />
+            
+            {/* Protected Citizen Routes */}
+            <Route path="/track" element={<ProtectedRoute><TrackRedirect /></ProtectedRoute>} />
+            <Route path="/token/:tokenId" element={<ProtectedRoute><TokenLive /></ProtectedRoute>} />
+            <Route path="/history" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            
+            {/* Employee Routes */}
+            <Route path="/employee" element={<ProtectedRoute allowedRoles={['employee', 'admin']}><EmployeeDashboard /></ProtectedRoute>} />
+            <Route path="/employee/queue" element={<ProtectedRoute allowedRoles={['employee', 'admin']}><Placeholder title="Queue Management" /></ProtectedRoute>} />
+            <Route path="/employee/counter" element={<ProtectedRoute allowedRoles={['employee', 'admin']}><Placeholder title="Counter Controller" /></ProtectedRoute>} />
+            
+            {/* Admin Routes */}
+            <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminDashboard /></AdminLayout></ProtectedRoute>} />
+            <Route path="/admin/analytics" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminDashboard /></AdminLayout></ProtectedRoute>} />
+            
+            <Route path="/admin/offices" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminOffices /></AdminLayout></ProtectedRoute>} />
+            <Route path="/admin/services" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminServices /></AdminLayout></ProtectedRoute>} />
+            <Route path="/admin/counters" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminCounters /></AdminLayout></ProtectedRoute>} />
+            <Route path="/admin/tokens" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminTokens /></AdminLayout></ProtectedRoute>} />
+            <Route path="/admin/queue" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminQueue /></AdminLayout></ProtectedRoute>} />
+            
+            <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><AdminEmployees /></AdminLayout></ProtectedRoute>} />
+            <Route path="/admin/data" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><Placeholder title="Data Management" /></AdminLayout></ProtectedRoute>} />
+            <Route path="/admin/model" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><Placeholder title="ML Model Diagnostics" /></AdminLayout></ProtectedRoute>} />
+            <Route path="/admin/audit" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout><Placeholder title="Audit Logs (Read Only)" /></AdminLayout></ProtectedRoute>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Router>
+      </SettingsProvider>
     </AuthProvider>
   );
 };

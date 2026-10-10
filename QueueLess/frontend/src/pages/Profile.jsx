@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { User as UserIcon, Mail, Phone, Shield, Calendar, Bell, Key, Globe, Moon, Save, X, ActivitySquare, Ticket, LogOut } from 'lucide-react';
+import { User as UserIcon, Mail, Phone, Shield, Calendar, Bell, Key, Moon, Save, X, ActivitySquare, Ticket, LogOut } from 'lucide-react';
 
 
 const Profile = () => {
@@ -11,11 +11,11 @@ const Profile = () => {
     
     const [profile, setProfile] = useState(null);
     const [tokens, setTokens] = useState([]);
+    const [mockTests, setMockTests] = useState([]);
     const [offices, setOffices] = useState({});
     
     // Account Settings States
     const [notifications, setNotifications] = useState(localStorage.getItem('notifications') !== 'false');
-    const [language, setLanguage] = useState(localStorage.getItem('language') || 'English');
     const [theme, setTheme] = useState(localStorage.getItem('theme') || 'Light');
     
     // Change Password States
@@ -44,14 +44,16 @@ const Profile = () => {
 
     const fetchData = async () => {
         try {
-            const [profileRes, tokensRes, officesRes] = await Promise.all([
+            const [profileRes, tokensRes, officesRes, mockTestRes] = await Promise.all([
                 api.get('/auth/me'),
                 api.get('/tokens'),
-                api.get('/offices')
+                api.get('/offices'),
+                api.get('/mock-test/history').catch(() => ({ data: [] }))
             ]);
             setProfile(profileRes.data);
             setEditForm({ name: profileRes.data.name, mobile_number: profileRes.data.mobile_number || '' });
             setTokens(tokensRes.data);
+            setMockTests(mockTestRes.data || []);
             
             // Map offices by ID for display
             const officeMap = {};
@@ -66,7 +68,6 @@ const Profile = () => {
     // Synchronize settings with LocalStorage
     useEffect(() => {
         localStorage.setItem('notifications', notifications.toString());
-        localStorage.setItem('language', language);
         localStorage.setItem('theme', theme);
         
         if (theme === 'Dark') {
@@ -74,7 +75,7 @@ const Profile = () => {
         } else {
             document.body.classList.remove('dark-theme');
         }
-    }, [notifications, language, theme]);
+    }, [notifications, theme]);
 
     const handlePasswordSubmit = async (e) => {
         e.preventDefault();
@@ -118,8 +119,8 @@ const Profile = () => {
             return;
         }
         
-        if (editForm.mobile_number && !/^\d{10,}$/.test(editForm.mobile_number.replace(/\D/g, ''))) {
-            setError('Mobile number must contain a valid number.');
+        if (editForm.mobile_number && editForm.mobile_number.replace(/\D/g, '').length !== 10) {
+            setError('Mobile number must be exactly 10 digits.');
             return;
         }
 
@@ -261,7 +262,18 @@ const Profile = () => {
                                         </div>
                                         <div>
                                             <label className="label">Mobile Number</label>
-                                            <input type="text" className="input-field" value={editForm.mobile_number} onChange={e => setEditForm({...editForm, mobile_number: e.target.value})} placeholder="e.g. +91 9876543210" disabled={isSaving} />
+                                            <input 
+                                                type="text" 
+                                                className="input-field" 
+                                                value={editForm.mobile_number} 
+                                                onChange={e => {
+                                                    const val = e.target.value.replace(/\D/g, '');
+                                                    if(val.length <= 10) setEditForm({...editForm, mobile_number: val});
+                                                }} 
+                                                maxLength={10}
+                                                placeholder="e.g. 9876543210" 
+                                                disabled={isSaving} 
+                                            />
                                         </div>
                                         <div>
                                             <label className="label">Email Address <span style={{fontSize:'0.8rem', color:'var(--text-secondary)'}}>(Read-only)</span></label>
@@ -324,14 +336,7 @@ const Profile = () => {
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', background: '#f8fafc', borderRadius: '12px', cursor: 'pointer', border: '1px solid var(--border-color)' }} onClick={() => setIsPasswordModalOpen(true)}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontWeight: 600, color: '#1e293b' }}><Key size={20} color="var(--primary-color)" /> Change Password</div>
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', background: '#f8fafc', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontWeight: 600, color: '#1e293b' }}><Globe size={20} color="var(--primary-color)" /> Language</div>
-                                    <select style={{ border: 'none', background: 'transparent', fontSize: '1rem', color: 'var(--text-secondary)', outline: 'none', cursor: 'pointer', textAlign: 'right', fontWeight: 500 }} value={language} onChange={e => setLanguage(e.target.value)}>
-                                        <option value="English">English</option>
-                                        <option value="Gujarati">Gujarati</option>
-                                        <option value="Hindi">Hindi</option>
-                                    </select>
-                                </div>
+
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', background: '#f8fafc', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontWeight: 600, color: '#1e293b' }}><Moon size={20} color="var(--primary-color)" /> Theme</div>
                                     <select style={{ border: 'none', background: 'transparent', fontSize: '1rem', color: 'var(--text-secondary)', outline: 'none', cursor: 'pointer', textAlign: 'right', fontWeight: 500 }} value={theme} onChange={e => setTheme(e.target.value)}>
@@ -414,6 +419,56 @@ const Profile = () => {
                                                                 fontSize: '0.8rem', fontWeight: 700, display: 'inline-block',
                                                                 textTransform: 'capitalize'
                                                             }}>{tk.status}</span>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Mock Test History */}
+                        <div className="card" id="mock-test-history" style={{ padding: '30px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, margin: 0, color: 'var(--primary-color)' }}>Mock Test History</h3>
+                                <button className="btn-accent" style={{ padding: '8px 16px', fontSize: '0.9rem' }} onClick={() => navigate('/mock-test')}>
+                                    Take New Test
+                                </button>
+                            </div>
+                            
+                            {mockTests.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-secondary)', background: '#f8fafc', borderRadius: '12px' }}>
+                                    <Shield size={32} style={{ margin: '0 auto 10px auto', opacity: 0.5 }} />
+                                    No mock tests taken yet. Start practicing today!
+                                </div>
+                            ) : (
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '500px' }}>
+                                        <thead>
+                                            <tr style={{ background: '#f8fafc', color: 'var(--text-secondary)', textAlign: 'left', fontSize: '0.9rem' }}>
+                                                <th style={{ padding: '12px 15px', borderRadius: '8px 0 0 8px' }}>Date</th>
+                                                <th style={{ padding: '12px 15px' }}>Score</th>
+                                                <th style={{ padding: '12px 15px' }}>Percentage</th>
+                                                <th style={{ padding: '12px 15px', borderRadius: '0 8px 8px 0' }}>Result</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {mockTests.map(test => {
+                                                const date = new Date(test.created_at + 'Z').toLocaleDateString();
+                                                return (
+                                                    <tr key={test.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                                        <td style={{ padding: '16px 15px', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>{date}</td>
+                                                        <td style={{ padding: '16px 15px', fontWeight: 600 }}>{test.score} / {test.total_questions}</td>
+                                                        <td style={{ padding: '16px 15px', color: 'var(--text-secondary)' }}>{test.percentage.toFixed(0)}%</td>
+                                                        <td style={{ padding: '16px 15px' }}>
+                                                            <span style={{ 
+                                                                background: test.passed ? '#dcfce7' : '#fee2e2', 
+                                                                color: test.passed ? '#16a34a' : '#dc2626', 
+                                                                padding: '4px 10px', borderRadius: '12px', 
+                                                                fontSize: '0.8rem', fontWeight: 700, display: 'inline-block'
+                                                            }}>{test.passed ? 'Passed' : 'Needs Practice'}</span>
                                                         </td>
                                                     </tr>
                                                 );

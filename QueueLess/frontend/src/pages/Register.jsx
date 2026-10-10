@@ -99,9 +99,12 @@ const Register = () => {
                 style={{ paddingLeft: '45px' }}
                 value={mobileNumber}
                 onChange={e => {
-                  const val = e.target.value.replace(/[^\d+]/g, '');
-                  setMobileNumber(val);
+                  const val = e.target.value.replace(/\D/g, '');
+                  if (val.length <= 10) {
+                    setMobileNumber(val);
+                  }
                 }}
+                maxLength={10}
                 required
               />
             </div>

@@ -344,15 +344,23 @@ def update_admin_employee(employee_id: int, data: EmployeeUpdate, db: Session = 
     if not emp: raise HTTPException(status_code=404, detail="Employee not found")
     
     update_data = data.dict(exclude_unset=True)
-    if "email" in update_data and update_data["email"] != emp.email:
-        existing = db.query(User).filter(User.email == update_data["email"]).first()
-        if existing:
-            raise HTTPException(status_code=400, detail="Email already in use by another account.")
-            
+    if "email" in update_data and update_data["email"]:
+        new_email = update_data["email"].strip().lower()
+        if new_email != emp.email.lower():
+            existing = db.query(User).filter(func.lower(User.email) == new_email, User.id != employee_id).first()
+            if existing:
+                raise HTTPException(status_code=400, detail="Email already in use by another account.")
+            emp.email = new_email
+        update_data.pop("email", None)
+
+    if "name" in update_data and update_data["name"]:
+        emp.name = update_data["name"].strip()
+        update_data.pop("name", None)
+
     if "new_password" in update_data:
         pwd = update_data.pop("new_password")
-        if pwd:
-            emp.password_hash = security.get_password_hash(pwd)
+        if pwd and pwd.strip():
+            emp.password_hash = security.get_password_hash(pwd.strip())
             
     for k, v in update_data.items():
         setattr(emp, k, v)
@@ -395,6 +403,8 @@ def get_admin_tokens(db: Session = Depends(deps.get_db), current_user: User = De
         res.append({
             "id": t.id, "token_number": t.token_number, "status": t.status,
             "created_at": t.created_at,
+            "office_id": t.office_id,
+            "service_id": t.service_id,
             "office_name": o.name if o else "Unknown",
             "service_name": s.name if s else "Unknown",
             "position": pos, "estimated_wait": est

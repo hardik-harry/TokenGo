@@ -119,12 +119,12 @@ const AdminServices = () => {
       {isLoading ? (
         <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading services...</div>
       ) : (
-        <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
+        <div className="card" style={{ padding: 0, overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 200px)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '700px' }}>
-            <thead style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
+            <thead>
               <tr>
                 {['ID', 'Code', 'Name', 'Avg Service Time', 'Status', 'Actions'].map(h => (
-                  <th key={h} style={{ padding: '14px 18px', fontWeight: 600, fontSize: '0.9rem' }}>{h}</th>
+                  <th key={h} style={{ padding: '14px 18px', fontWeight: 600, fontSize: '0.9rem', background: 'var(--bg-secondary)', position: 'sticky', top: 0, zIndex: 10, borderBottom: '1px solid var(--border-color)' }}>{h}</th>
                 ))}
               </tr>
             </thead>

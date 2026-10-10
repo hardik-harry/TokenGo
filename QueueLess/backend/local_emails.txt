@@ -1,0 +1,88 @@
+
+============================================================
+TIME: 2026-10-10 14:33:48
+TO: vayasmit5@gmail.com
+SUBJECT: Your TokenGo Ticket: AHM-DLR002
+------------------------------------------------------------
+Hello smit vaya,
+
+Your token has been successfully generated!
+
+Token Number: AHM-DLR002
+Queue Position: 2
+Estimated People Ahead: 1
+
+Please keep an eye on your dashboard or the TokenGo platform for live updates and wait times.
+============================================================
+
+============================================================
+TIME: 2026-10-10 14:36:34
+TO: vayasmit5@gmail.com
+SUBJECT: Your TokenGo Ticket: SUR-LL002
+------------------------------------------------------------
+Hello smit vaya,
+
+Your token has been successfully generated!
+
+Token Number: SUR-LL002
+Queue Position: 2
+Estimated People Ahead: 1
+
+Please keep an eye on your dashboard or the TokenGo platform for live updates and wait times.
+============================================================
+
+============================================================
+TIME: 2026-10-10 14:39:26
+TO: test@example.com
+SUBJECT: Test Subject
+------------------------------------------------------------
+Just testing
+============================================================
+
+============================================================
+TIME: 2026-10-10 14:39:50
+TO: vayasmit5@gmail.com
+SUBJECT: Your TokenGo Ticket: SUR-DLR002
+------------------------------------------------------------
+Hello smit vaya,
+
+Your token has been successfully generated!
+
+Token Number: SUR-DLR002
+Queue Position: 2
+Estimated People Ahead: 1
+
+Please keep an eye on your dashboard or the TokenGo platform for live updates and wait times.
+============================================================
+
+============================================================
+TIME: 2026-10-10 14:41:37
+TO: vayasmit09@gmail.com
+SUBJECT: Your TokenGo Ticket: RAJ-DLR006
+------------------------------------------------------------
+Hello smitivaya,
+
+Your token has been successfully generated!
+
+Token Number: RAJ-DLR006
+Queue Position: 3
+Estimated People Ahead: 2
+
+Please keep an eye on your dashboard or the TokenGo platform for live updates and wait times.
+============================================================
+
+============================================================
+TIME: 2026-10-10 15:32:58
+TO: hardikdabhi432@gmail.com
+SUBJECT: Your TokenGo Ticket: RAJ-DLR007
+------------------------------------------------------------
+Hello Hardik Dabhi,
+
+Your token has been successfully generated!
+
+Token Number: RAJ-DLR007
+Queue Position: 4
+Estimated People Ahead: 3
+
+Please keep an eye on your dashboard or the TokenGo platform for live updates and wait times.
+============================================================

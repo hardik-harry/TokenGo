@@ -22,9 +22,9 @@ const AdminLayout = ({ children }) => {
   ];
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-secondary)' }}>
+    <div style={{ display: 'flex', height: '100vh', background: 'var(--bg-secondary)', overflow: 'hidden' }}>
       {/* Sidebar */}
-      <div style={{ width: '250px', background: '#0f172a', color: 'white', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ width: '250px', flexShrink: 0, height: '100vh', background: '#0f172a', color: 'white', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '20px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <h2 style={{ fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <ActivitySquare size={24} color="var(--accent-color)" /> TokenGo
@@ -32,7 +32,7 @@ const AdminLayout = ({ children }) => {
           <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '5px' }}>Admin Portal</div>
         </div>
         
-        <div style={{ padding: '10px 0', flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+        <div style={{ padding: '10px 0', flex: 1, display: 'flex', flexDirection: 'column', gap: '5px', overflowY: 'auto' }}>
           {navItems.map(item => (
             <div 
               key={item.path}
@@ -60,7 +60,7 @@ const AdminLayout = ({ children }) => {
       </div>
       
       {/* Main Content */}
-      <div style={{ flex: 1, overflow: 'auto' }}>
+      <div style={{ flex: 1, overflowY: 'auto', height: '100vh' }}>
          {children}
       </div>
     </div>

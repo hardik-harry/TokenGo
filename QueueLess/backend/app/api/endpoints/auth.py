@@ -8,8 +8,11 @@ import re
 from app.api import deps
 from app.core import security
 from app.core.config import settings
-from app.models.models import User
-from app.schemas.user import UserCreate, UserResponse, Token, UserUpdate, UserPasswordUpdate
+from app.models.models import User, UserSettings
+from app.schemas.user import (
+    UserCreate, UserResponse, Token, UserUpdate, UserPasswordUpdate,
+    UserSettingsUpdate, UserSettingsResponse
+)
 
 router = APIRouter()
 
@@ -132,9 +135,74 @@ def update_password_me(
     if not security.verify_password(body.current_password, current_user.password_hash):
         raise HTTPException(status_code=400, detail="Incorrect current password")
     
+    pwd = body.new_password
+    if len(pwd) < 8 or not re.search(r'[A-Z]', pwd) or not re.search(r'[a-z]', pwd) or not re.search(r'\d', pwd) or not re.search(r'[^a-zA-Z0-9]', pwd):
+        raise HTTPException(
+            status_code=400,
+            detail="New password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special symbol."
+        )
+
+    if security.verify_password(body.new_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=400,
+            detail="New password must be different from current password."
+        )
+    
     current_user.password_hash = security.get_password_hash(body.new_password)
     db.commit()
-    return {"msg": "Password updated successfully"}
+    return {"success": True, "msg": "Password updated successfully"}
+
+@router.get("/me/settings", response_model=UserSettingsResponse)
+def get_user_settings(
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Get current user settings.
+    """
+    user_settings = db.query(UserSettings).filter(UserSettings.user_id == current_user.id).first()
+    if not user_settings:
+        user_settings = UserSettings(
+            user_id=current_user.id,
+            notifications_enabled=True,
+            language="English",
+            theme="Light"
+        )
+        db.add(user_settings)
+        db.commit()
+        db.refresh(user_settings)
+        
+    return user_settings
+
+@router.put("/me/settings", response_model=UserSettingsResponse)
+def update_user_settings(
+    settings_in: UserSettingsUpdate,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Any:
+    """
+    Update current user settings.
+    """
+    user_settings = db.query(UserSettings).filter(UserSettings.user_id == current_user.id).first()
+    if not user_settings:
+        user_settings = UserSettings(
+            user_id=current_user.id,
+            notifications_enabled=True,
+            language="English",
+            theme="Light"
+        )
+        db.add(user_settings)
+        
+    if settings_in.notifications_enabled is not None:
+        user_settings.notifications_enabled = settings_in.notifications_enabled
+    if settings_in.language is not None and settings_in.language.strip():
+        user_settings.language = settings_in.language.strip()
+    if settings_in.theme is not None and settings_in.theme.strip():
+        user_settings.theme = settings_in.theme.strip()
+        
+    db.commit()
+    db.refresh(user_settings)
+    return user_settings
 
 @router.get("/admin/test")
 def admin_only_test(
@@ -144,3 +212,4 @@ def admin_only_test(
     Test endpoint only accessible by admins.
     """
     return {"msg": f"Welcome Admin {current_user.name}"}
+
